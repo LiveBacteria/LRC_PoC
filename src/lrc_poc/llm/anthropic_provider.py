@@ -59,7 +59,8 @@ class AnthropicProvider(BaseLLMProvider):
     def propose_candidates(self, cloud_text: str, top_n: int = 20) -> list[str]:
         payload = self.extract_json_block(
             self._invoke(
-                f"Return JSON {{\"candidates\": [...]}} with {top_n} single-word candidates "
+                f"Return JSON {{\"candidates\": [...]}} with up to {top_n} concise lexical compressions "
+                f"(single words or short phrases) "
                 f"for this cloud: {cloud_text}"
             )
         )

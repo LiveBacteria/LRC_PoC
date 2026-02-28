@@ -26,7 +26,7 @@ class FakeProvider(BaseLLMProvider):
         }
 
     def propose_candidates(self, cloud_text: str, top_n: int = 20) -> list[str]:
-        return ["happiness", "sorrow", "bereavement"][:top_n]
+        return ["happiness", "sorrow", "bereavement", "deep emotional loss"][:top_n]
 
     def rerank_candidates(self, cloud_text: str, candidates: list[str]) -> list[str]:
         return ["happiness"] + [candidate for candidate in candidates if candidate != "happiness"]
@@ -52,6 +52,7 @@ def test_mode_2_uses_candidate_proposals(sample_lexicon) -> None:
     result = pipeline.run_once("grief", mode=2)
     top_words = [item.word for item in result.top_k]
     assert "happiness" in top_words
+    assert "deep emotional loss" in top_words
 
 
 def test_mode_3_reranks_winner(sample_lexicon) -> None:

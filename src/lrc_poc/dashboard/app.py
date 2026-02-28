@@ -12,6 +12,7 @@ from lrc_poc.attractor import map_attractors
 from lrc_poc.lexicon import build_wordnet_lexicon
 from lrc_poc.pipeline import LRCPipeline
 from lrc_poc.recurse import lexical_entropy_profile, run_pipeline_recursion, summarize_iterations
+from lrc_poc.sentence_ops import run_sentence_definition_cycle
 
 
 @st.cache_resource
@@ -40,7 +41,17 @@ def _render_top_candidates(result) -> None:
         ]
     )
     st.subheader("Top Candidates")
-    st.dataframe(table, use_container_width=True)
+    st.dataframe(table, width="stretch")
+
+
+def _render_sentence_cycle(cycle: dict[str, object]) -> None:
+    st.subheader("Definition Expansion/Reduction Cycle")
+    st.write("Expanded Sentence:")
+    st.code(str(cycle["expanded_sentence"]))
+    st.write("Reduced Terms Sentence:")
+    st.code(str(cycle["reduced_sentence"]))
+    mapping_df = pd.DataFrame(cycle["mappings"])
+    st.dataframe(mapping_df, width="stretch")
 
 
 def _render_recursion(iterations) -> None:
@@ -61,7 +72,7 @@ def _render_recursion(iterations) -> None:
     ]
     frame = pd.DataFrame(rows)
     st.subheader("Recursion Trajectory")
-    st.dataframe(frame, use_container_width=True)
+    st.dataframe(frame, width="stretch")
     st.line_chart(frame.set_index("iteration")[["winner_score", "drift_from_origin", "entropy"]])
 
 
@@ -82,7 +93,7 @@ def _render_attractor_result(result) -> None:
         [{"final_word": word, "count": count} for word, count in result.basin_summary.items()]
     ).sort_values("count", ascending=False)
     st.subheader("Attractor Basins")
-    st.dataframe(basin_df, use_container_width=True)
+    st.dataframe(basin_df, width="stretch")
     if not basin_df.empty:
         st.bar_chart(basin_df.set_index("final_word")["count"])
 
@@ -117,29 +128,36 @@ def main() -> None:
 
     st.subheader("Single Reduction")
     single_text = st.text_input("Input Text", value="grief")
-    if st.button("Run Single Reduction", use_container_width=True):
+    if st.button("Run Single Reduction", width="stretch"):
         result = pipeline.run_once(single_text, mode=mode, top_k=top_k)
+        cycle = run_sentence_definition_cycle(
+            text=single_text,
+            lexicon=pipeline.lexicon,
+            pipeline=pipeline,
+            mode=mode,
+        )
         st.write(f"Winner: `{result.winner.word}`")
         st.write(f"Confidence: `{result.confidence:.4f}`")
         if result.fallback_reason:
             st.warning(result.fallback_reason)
+        _render_sentence_cycle(cycle)
         _render_top_candidates(result)
 
     st.subheader("Recursive Analysis")
     recurse_text = st.text_input("Recursion Seed", value="grief", key="recurse_seed")
-    if st.button("Run Recursion", use_container_width=True):
+    if st.button("Run Recursion", width="stretch"):
         recursion = run_pipeline_recursion(recurse_text, pipeline=pipeline, iterations=iterations, mode=mode)
         st.json(
             {
                 "summary": summarize_iterations(recursion),
-                "lexical_entropy": lexical_entropy_profile(recursion),
+                "candidate_uncertainty_profile": lexical_entropy_profile(recursion),
             }
         )
         _render_recursion(recursion)
 
     st.subheader("Attractor Mapping")
     output_dir = st.text_input("Output Directory", value="artifacts/dashboard")
-    if st.button("Run Attractor Map", use_container_width=True):
+    if st.button("Run Attractor Map", width="stretch"):
         result = map_attractors(
             lexicon=pipeline.lexicon,
             seed_count=seed_count,

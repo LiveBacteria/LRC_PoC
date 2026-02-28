@@ -26,7 +26,7 @@ def _empty_config() -> AppConfig:
 def _choose_provider(config: AppConfig, preferred_provider: str | None = None) -> BaseLLMProvider | None:
     model_name = config.defaults.model_name
     providers: list[BaseLLMProvider] = [
-        GoogleProvider(api_key=config.api_keys.google_api_key, model_name=model_name or "gemini-1.5-flash"),
+        GoogleProvider(api_key=config.api_keys.google_api_key, model_name=model_name or ""),
         OpenAIProvider(api_key=config.api_keys.openai_api_key, model_name=model_name or "gpt-4o-mini"),
         AnthropicProvider(
             api_key=config.api_keys.anthropic_api_key,
@@ -161,7 +161,29 @@ class LRCPipeline:
 
         proposed_entries: list[LexiconEntry] = []
         for word in proposed_words:
-            proposed_entries.extend(self.lexicon_by_word.get(word.lower(), []))
+            normalized = word.strip().lower()
+            if not normalized:
+                continue
+            matched = self.lexicon_by_word.get(normalized, [])
+            if matched:
+                proposed_entries.extend(matched)
+                continue
+
+            # Preserve short phrase compressions proposed by the LLM even when
+            # they are out of lexicon, so sentence-level reduction can remain coherent.
+            proposed_entries.append(
+                LexiconEntry(
+                    word=normalized,
+                    lemma=normalized,
+                    part_of_speech=cloud.preferred_pos,
+                    definition=f"LLM proposed compression candidate for: {cloud.source_text}",
+                    synonyms=(normalized,),
+                    hypernyms=tuple(cloud.broader_concepts[:5]),
+                    hyponyms=(),
+                    synset_id=f"llm:{normalized.replace(' ', '_')}",
+                    sense_count=1,
+                )
+            )
 
         deterministic_entries = generate_candidates(cloud, self.lexicon, max_candidates=max_candidates)
         merged = _dedupe_entries(

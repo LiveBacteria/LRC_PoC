@@ -122,6 +122,8 @@ api_keys:
   anthropic_api_key: ""
 ```
 
+If `defaults.model_name` is left empty, the Google provider auto-discovers a compatible Gemini model that supports `generateContent`.
+
 Config loading behavior:
 
 1. Use `config/models.yaml` if present.
@@ -148,6 +150,18 @@ python -m lrc_poc.cli map --seed-count 200 --iterations 10 --mode 0 --out artifa
 ```
 
 Word and short-phrase inputs are also supported, but sentence inputs are first-class and covered by tests.
+
+## Output Interpretation
+
+- `lexical_entropy` is a normalized uncertainty score over top-k candidate scores at each recursion step.
+- Higher entropy means several candidates were similarly plausible.
+- Lower entropy means the reducer had a clear winner.
+
+Why a word can map to a different word:
+
+- Milestone 3 studies semantic attractors under expansion->reduction recursion.
+- The reducer projects meaning onto the best lexical fit, which can move from the literal input token to a nearby conceptual root.
+- In Mode 2 and Mode 4, LLM short-phrase candidates are preserved to support more coherent sentence-level compression.
 
 ## Dashboard
 

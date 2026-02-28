@@ -45,3 +45,38 @@ def test_confidence_from_margin_increases_with_gap() -> None:
     low_gap = scorer.confidence_from_margin(0.51, 0.50)
     high_gap = scorer.confidence_from_margin(0.70, 0.40)
     assert high_gap > low_gap
+
+
+def test_anchor_bias_prefers_exact_source_token() -> None:
+    from lrc_poc.models import LexiconEntry, SemanticCloud
+
+    scorer = SemanticScorer()
+    cloud = SemanticCloud(
+        source_text="cat",
+        key_terms=("cat",),
+        definitions=("feline mammal",),
+        synonyms=("cat", "feline"),
+        broader_concepts=("animal",),
+        related_concepts=("pet",),
+        constraints=(),
+        negative_constraints=(),
+        composed_cloud_text="cat feline mammal animal pet",
+        preferred_pos="n",
+    )
+    cat = LexiconEntry(
+        word="cat",
+        lemma="cat",
+        part_of_speech="n",
+        definition="feline mammal usually having thick soft fur",
+        sense_count=4,
+    )
+    kat = LexiconEntry(
+        word="kat",
+        lemma="kat",
+        part_of_speech="n",
+        definition="the leaves of a shrub used as a stimulant",
+        sense_count=1,
+    )
+    cat_score = scorer.score_candidate(cloud, cat)
+    kat_score = scorer.score_candidate(cloud, kat)
+    assert cat_score.total > kat_score.total

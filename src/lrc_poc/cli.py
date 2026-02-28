@@ -10,6 +10,7 @@ from .attractor import map_attractors
 from .lexicon import build_wordnet_lexicon
 from .pipeline import LRCPipeline
 from .recurse import lexical_entropy_profile, run_pipeline_recursion, summarize_iterations
+from .sentence_ops import run_sentence_definition_cycle
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -73,12 +74,19 @@ def main() -> None:
             top_k=args.top_k,
             max_candidates=args.max_candidates,
         )
+        sentence_cycle = run_sentence_definition_cycle(
+            text=args.text,
+            lexicon=lexicon,
+            pipeline=pipeline,
+            mode=args.mode,
+        )
         _print_payload(
             {
                 "mode": args.mode,
                 "winner": result.winner.word,
                 "confidence": result.confidence,
                 "fallback_reason": result.fallback_reason,
+                "definition_cycle": sentence_cycle,
                 "top_k": [
                     {
                         "word": item.word,
@@ -103,7 +111,7 @@ def main() -> None:
                 "mode": args.mode,
                 "iterations": args.iterations,
                 "summary": summarize_iterations(iterations),
-                "lexical_entropy": lexical_entropy_profile(iterations),
+                "candidate_uncertainty_profile": lexical_entropy_profile(iterations),
                 "trajectory": [
                     {
                         "iteration": item.iteration,

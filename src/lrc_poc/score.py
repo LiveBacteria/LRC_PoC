@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 import math
 import re
 
@@ -73,6 +74,21 @@ class SemanticScorer:
         concision_bonus = 1.0 / max(len(candidate.word.split()), 1)
         ambiguity_penalty = min(1.0, max(candidate.sense_count - 1, 0) / 10.0)
         pos_mismatch_penalty = 0.0 if pos_match >= 1.0 else 1.0
+        source_text = cloud.source_text.strip().lower()
+        source_is_token = bool(source_text and " " not in source_text)
+        candidate_word = candidate.word.strip().lower()
+
+        anchor_bonus = 0.0
+        near_miss_penalty = 0.0
+        if source_is_token and candidate_word == source_text:
+            anchor_bonus = 0.25
+        elif candidate_word in set(cloud.key_terms):
+            anchor_bonus = 0.05
+
+        if source_is_token and candidate_word != source_text and candidate_word:
+            ratio = SequenceMatcher(None, source_text, candidate_word).ratio()
+            if ratio >= 0.70:
+                near_miss_penalty = 0.06
 
         weighted = (
             self.weights.definition_similarity * definition_similarity
@@ -83,6 +99,8 @@ class SemanticScorer:
             + self.weights.concision_bonus * concision_bonus
             - self.weights.ambiguity_penalty * ambiguity_penalty
             - self.weights.pos_mismatch_penalty * pos_mismatch_penalty
+            + anchor_bonus
+            - near_miss_penalty
         )
         total = max(0.0, min(1.0, weighted))
 

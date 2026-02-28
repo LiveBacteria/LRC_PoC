@@ -70,15 +70,27 @@ class BaseLLMProvider(ABC):
 
 def normalize_str_list(value: object) -> list[str]:
     """Normalize provider JSON values to clean string lists."""
+    def _coerce_item(item: object) -> str:
+        if isinstance(item, dict):
+            for key in ("value", "text", "word", "candidate", "name"):
+                if key in item and str(item[key]).strip():
+                    return str(item[key]).strip().lower()
+            return ""
+        return str(item).strip().lower()
+
     if value is None:
         return []
     if isinstance(value, str):
         return [value.strip().lower()] if value.strip() else []
+    if isinstance(value, dict):
+        coerced = _coerce_item(value)
+        return [coerced] if coerced else []
     if isinstance(value, list):
         cleaned: list[str] = []
         for item in value:
-            item_str = str(item).strip().lower()
+            item_str = _coerce_item(item)
             if item_str:
                 cleaned.append(item_str)
         return cleaned
-    return [str(value).strip().lower()]
+    coerced = _coerce_item(value)
+    return [coerced] if coerced else []
