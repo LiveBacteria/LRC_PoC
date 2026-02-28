@@ -8,6 +8,7 @@ import re
 import nltk
 from nltk.corpus import wordnet as wn
 from nltk.stem import WordNetLemmatizer
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 
 from .lexicon import LexiconResourceError, ensure_wordnet_available
 from .models import SemanticCloud
@@ -22,7 +23,7 @@ def normalize_text(text: str) -> str:
 
 def _safe_tokenize(text: str) -> list[str]:
     tokens = TOKEN_PATTERN.findall(text.lower())
-    return [token for token in tokens if len(token) > 2]
+    return [token for token in tokens if len(token) > 2 and token not in ENGLISH_STOP_WORDS]
 
 
 def _safe_pos_tag(tokens: list[str]) -> list[tuple[str, str]]:

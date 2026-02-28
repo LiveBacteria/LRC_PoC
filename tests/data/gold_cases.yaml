@@ -1,0 +1,13 @@
+cases:
+  - input: "grief"
+    expected: ["grief", "sorrow", "bereavement", "mourning"]
+  - input: "joy"
+    expected: ["joy", "happiness", "delight", "elation"]
+  - input: "rage"
+    expected: ["rage", "anger", "fury", "wrath"]
+  - input: "a feeling of loss tied specifically to death and emotional absence"
+    expected: ["bereavement", "grief", "mourning", "sorrow"]
+  - input: "a positive emotional state with pleasure and contentment"
+    expected: ["happiness", "joy", "contentment", "delight"]
+  - input: "intense anger and violent temper"
+    expected: ["rage", "fury", "anger", "wrath"]

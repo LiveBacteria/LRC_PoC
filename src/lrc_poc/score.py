@@ -40,13 +40,14 @@ def _jaccard_similarity(left: set[str], right: set[str]) -> float:
 class ScoringWeights:
     """Tunable weights for reduction scoring."""
 
-    definition_similarity: float = 0.55
+    definition_similarity: float = 0.45
     synonym_relation_score: float = 0.15
     hypernym_alignment: float = 0.10
-    keyword_overlap: float = 0.10
-    pos_match: float = 0.05
+    keyword_overlap: float = 0.15
+    pos_match: float = 0.10
     concision_bonus: float = 0.05
     ambiguity_penalty: float = 0.10
+    pos_mismatch_penalty: float = 0.10
 
 
 class SemanticScorer:
@@ -71,6 +72,7 @@ class SemanticScorer:
         pos_match = 1.0 if candidate.part_of_speech == cloud.preferred_pos else 0.0
         concision_bonus = 1.0 / max(len(candidate.word.split()), 1)
         ambiguity_penalty = min(1.0, max(candidate.sense_count - 1, 0) / 10.0)
+        pos_mismatch_penalty = 0.0 if pos_match >= 1.0 else 1.0
 
         weighted = (
             self.weights.definition_similarity * definition_similarity
@@ -80,6 +82,7 @@ class SemanticScorer:
             + self.weights.pos_match * pos_match
             + self.weights.concision_bonus * concision_bonus
             - self.weights.ambiguity_penalty * ambiguity_penalty
+            - self.weights.pos_mismatch_penalty * pos_mismatch_penalty
         )
         total = max(0.0, min(1.0, weighted))
 

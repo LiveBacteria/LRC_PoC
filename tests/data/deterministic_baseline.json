@@ -1,0 +1,6 @@
+{
+  "min_top1_hit_rate": 0.15,
+  "min_top3_hit_rate": 0.40,
+  "min_top10_hit_rate": 0.75,
+  "min_avg_confidence": 0.20
+}
