@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 import math
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -13,6 +13,9 @@ from .expand import safe_expand_text
 from .models import IterationResult, LexiconEntry, ReductionResult, SemanticCloud
 from .reduce import reduce_cloud
 from .score import SemanticScorer
+
+if TYPE_CHECKING:
+    from .pipeline import LRCPipeline
 
 
 def _text_similarity(left: str, right: str) -> float:
@@ -69,6 +72,53 @@ def run_recursion(
             mode_used=mode_used,
             fallback_reason=fallback_reason,
         )
+        winner = reduction.winner.word
+        scores = tuple(item.score_breakdown.total for item in reduction.top_k)
+        entropy = _normalized_entropy(scores)
+        drift = 1.0 - _text_similarity(origin, winner)
+
+        cycle_detected = winner in seen_words
+        cycle_length = (index - seen_words[winner]) if cycle_detected else None
+        fixed_point = winner == current
+        seen_words[winner] = index
+
+        results.append(
+            IterationResult(
+                iteration=index + 1,
+                input_text=current,
+                winner_word=winner,
+                winner_score=reduction.winner.score_breakdown.total,
+                confidence=reduction.confidence,
+                drift_from_origin=drift,
+                entropy=entropy,
+                fixed_point=fixed_point,
+                cycle_detected=cycle_detected,
+                cycle_length=cycle_length,
+                top_k_words=tuple(item.word for item in reduction.top_k),
+            )
+        )
+        current = winner
+
+    return tuple(results)
+
+
+def run_pipeline_recursion(
+    source_text: str,
+    pipeline: "LRCPipeline",
+    iterations: int = 10,
+    mode: int = 0,
+) -> tuple[IterationResult, ...]:
+    """Run recursion using the configured mode-aware pipeline."""
+    if iterations <= 0:
+        raise ValueError("iterations must be greater than zero")
+
+    origin = source_text.strip().lower()
+    current = origin
+    seen_words: dict[str, int] = {}
+    results: list[IterationResult] = []
+
+    for index in range(iterations):
+        reduction = pipeline.run_once(current, mode=mode, top_k=10)
         winner = reduction.winner.word
         scores = tuple(item.score_breakdown.total for item in reduction.top_k)
         entropy = _normalized_entropy(scores)

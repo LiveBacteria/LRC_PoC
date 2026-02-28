@@ -2,57 +2,188 @@
 
 ## Overview
 
-**Lexical Reduction and Convolution** is a bidirectional, LLM-mediated methodology for processing and compressing semantic information. Rather than compressing text at the character or token level, this framework operates directly on meaning. It functions through a two-step process:
+**Lexical Reduction and Convolution** is a bidirectional methodology for processing and compressing semantic information. Rather than compressing text at character or token level, this framework operates on meaning.
 
-1. Expand a lexical input into a dense semantic cloud.
-2. Convolve that cloud back into an optimized lexical representation.
+The process alternates between:
+
+1. Expansion: unpack lexical input into a structured semantic cloud.
+2. Convolution: reduce the semantic cloud to the most semantically faithful lexical root.
 
 ## Core Mechanisms
 
-The framework consists of two primary, opposing operations.
-
 ### Lexical Expansion (Semantic Unpacking)
 
-- **Process:** A source word, phrase, or text is expanded into its semantic components.
-- **Mechanism:** Dictionary definitions and LLM-formulated contextual meanings are combined into a comprehensive definition cloud.
-- **Output:** A detailed slice of text that captures explicit definitions, implicit connotations, and contextual boundaries.
+- **Process:** Expand a source word, phrase, or sentence into semantic components.
+- **Mechanism:** Use dictionary and optional LLM context to produce a structured cloud.
+- **Output:** Definitions, connotations, related concepts, constraints, and negative constraints.
 
 ### Lexical Convolution (Semantic Reduction)
 
-- **Process:** The inverse of expansion. A broad semantic slice is compressed.
-- **Mechanism:** The system searches for the best word or highly condensed phrase that encapsulates the expanded meaning.
-- **Output:** A dense lexical representation that acts as the root of the expanded concept.
+- **Process:** Compress semantic cloud back into lexical candidates.
+- **Mechanism:** Score candidates by definition similarity, lexical relations, keyword overlap, POS compatibility, concision, and ambiguity penalties.
+- **Output:** Winner + top-k alternatives with score breakdown and confidence.
 
 ## Workflow
 
-1. **Input:** A baseline word, phrase, or sentence.
-2. **Phase 1 (Expand):** Generate a high-dimensional semantic cloud under dictionary and model constraints.
-3. **Phase 2 (Convolve):** Reduce the expanded cloud to an optimal lexical fit.
-4. **Output:** A refined word or phrase that reformulates the original meaning.
+1. Input word/phrase/sentence.
+2. Expand into structured semantic cloud.
+3. Generate and score candidate lexical items.
+4. Return winner + alternatives.
+5. Optionally recurse over multiple iterations for stability analysis.
 
-## Theoretical Properties and System Dynamics
+## Recursive Dynamics (Milestone 3 Focus)
 
-While the base mechanics act as a semantic compressor, recursive application unlocks dynamical behaviors.
+Recursive expand -> reduce analysis tracks:
 
-When the output of Convolution is fed back into Expansion repeatedly, the system can be treated as a topological model of meaning. Key behaviors to test and document:
+- Fixed-point convergence.
+- Concept oscillation/cycles.
+- Semantic drift.
+- Lexical entropy trends.
+- Attractor basins across many seed terms.
 
-- **Fixed-Point Convergence:** Whether a concept locks into an immutable root under repeated cycles.
-- **Oscillation:** Whether the system loops between related concepts (for example, "sadness" and "grief").
-- **Semantic Drift or Collapse:** Whether meaning decays, loses context, or flattens into generic noise.
+## Mode Matrix (0-4)
 
-## Potential Applications
+- **Mode 0:** Deterministic baseline only.
+- **Mode 1:** LLM expansion + deterministic reduction.
+- **Mode 2:** Deterministic expansion + LLM candidate proposal + deterministic rerank.
+- **Mode 3:** Deterministic top-k + LLM reranking.
+- **Mode 4:** LLM expansion + LLM proposal + LLM rerank + deterministic fallback validation.
 
-- **Semantic Compression:** Store complex ideas as dense, retrievable seed words or short phrases.
-- **Concept Refinement:** Convolve long-form text to core conceptual roots.
-- **Latent Space Mapping:** Map semantic attractor basins by observing recursive stability and collapse dynamics.
+All non-zero modes fall back gracefully to deterministic behavior if provider config is missing or provider calls fail.
+
+## Architecture
+
+```text
+src/lrc_poc/
+  lexicon.py
+  expand.py
+  candidates.py
+  score.py
+  reduce.py
+  recurse.py
+  attractor.py
+  pipeline.py
+  cli.py
+  llm/
+  dashboard/app.py
+```
+
+## Environment Setup
+
+1. Create conda environment:
+
+```powershell
+conda create -n lrc python=3.12 -y
+conda activate lrc
+```
+
+2. Install package and dev dependencies:
+
+```powershell
+pip install -e .[dev]
+```
+
+3. Download NLTK resources:
+
+```powershell
+python -m nltk.downloader wordnet omw-1.4 punkt averaged_perceptron_tagger
+```
+
+## Config Setup (Template -> Runtime)
+
+Tracked template file:
+
+- `config/models.template.yaml`
+
+Runtime file (intentionally untracked):
+
+- `config/models.yaml`
+
+Create runtime file by removing `template` from the filename:
+
+```powershell
+Copy-Item config/models.template.yaml config/models.yaml
+```
+
+Then place real keys in `config/models.yaml` only.
+
+Template structure:
+
+```yaml
+# Default Models
+defaults:
+  model_name: "" # e.g., "gemini-3-pro-preview"
+  image_model_name: "" # e.g., "gemini-3-pro-image-preview"
+
+# API Keys. If you are using all gemini models, you can leave the other keys empty.
+api_keys:
+  google_api_key: ""
+  openai_api_key: ""
+  anthropic_api_key: ""
+```
+
+Config loading behavior:
+
+1. Use `config/models.yaml` if present.
+2. Otherwise fallback to `config/models.template.yaml`.
+
+## CLI Usage
+
+Run once:
+
+```powershell
+python -m lrc_poc.cli run-once --text "grief" --mode 0
+```
+
+Run recursion:
+
+```powershell
+python -m lrc_poc.cli recurse --text "grief" --iterations 10 --mode 0
+```
+
+Run attractor map:
+
+```powershell
+python -m lrc_poc.cli map --seed-count 200 --iterations 10 --mode 0 --out artifacts
+```
+
+## Dashboard
+
+```powershell
+streamlit run src/lrc_poc/dashboard/app.py
+```
+
+The dashboard provides:
+
+- Single reduction with top-k ranking.
+- Recursion trajectory and drift/entropy plotting.
+- Attractor basin mapping with artifact downloads.
+
+## Testing
+
+Run full suite:
+
+```powershell
+pytest
+```
+
+Coverage includes:
+
+- Deterministic logic/unit tests.
+- Gold-case semantic accuracy regression tests.
+- Recursion/cycle/fixed-point validation tests.
+- Mode 1-4 fallback and schema parity tests.
+- CLI end-to-end tests.
+- Dashboard smoke tests.
 
 ## Governance and ADRs
 
-- Architectural Decision Records (ADRs) are stored in [docs/adr/README.md](docs/adr/README.md).
-- All implementation and process rules should be recorded through ADRs.
+ADRs live in:
 
-## Repository Setup (Milestone 3)
+- [docs/adr/README.md](docs/adr/README.md)
 
-Milestone 3 introduces a modular semantic reduction engine, recursive attractor analysis, mode-selectable pipelines (Mode 0-4), and a Streamlit dashboard.
+First ADR:
 
-Detailed setup and run instructions are maintained with the codebase and must be updated alongside implementation changes.
+- [docs/adr/0001-change-documentation-and-full-update-rule.md](docs/adr/0001-change-documentation-and-full-update-rule.md)
+
+That ADR enforces documentation and relevant-file updates for all behavioral changes.

@@ -28,6 +28,9 @@ dev = [
   "pytest>=8.3.5",
 ]
 
+[project.scripts]
+lrc = "lrc_poc.cli:main"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 

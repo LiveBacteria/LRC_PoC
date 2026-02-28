@@ -9,7 +9,7 @@ import pandas as pd
 
 from .lexicon import sample_seed_words
 from .models import AttractorRunResult, IterationResult, LexiconEntry
-from .recurse import run_recursion, summarize_iterations
+from .recurse import run_pipeline_recursion, run_recursion, summarize_iterations
 from .score import SemanticScorer
 
 
@@ -57,6 +57,7 @@ def map_attractors(
     scorer: SemanticScorer | None = None,
     mode_used: int = 0,
     fallback_reason: str = "",
+    pipeline=None,
 ) -> AttractorRunResult:
     """Run recursive mapping over many seeds and export result artifacts."""
     if not lexicon:
@@ -76,14 +77,22 @@ def map_attractors(
     basin_summary: dict[str, int] = {}
 
     for seed in seed_terms:
-        iterations_result = run_recursion(
-            source_text=seed,
-            lexicon=lexicon,
-            iterations=iterations,
-            scorer=local_scorer,
-            mode_used=mode_used,
-            fallback_reason=fallback_reason,
-        )
+        if pipeline is None:
+            iterations_result = run_recursion(
+                source_text=seed,
+                lexicon=lexicon,
+                iterations=iterations,
+                scorer=local_scorer,
+                mode_used=mode_used,
+                fallback_reason=fallback_reason,
+            )
+        else:
+            iterations_result = run_pipeline_recursion(
+                source_text=seed,
+                pipeline=pipeline,
+                iterations=iterations,
+                mode=mode_used,
+            )
         trajectory_records.extend(_trajectory_rows(seed, iterations_result))
         row = _summary_row(seed, iterations_result)
         summary_records.append(row)
