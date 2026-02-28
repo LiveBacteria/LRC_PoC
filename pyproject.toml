@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lrc-poc"
+version = "0.1.0"
+description = "Lexical Reduction and Convolution proof of concept"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "anthropic>=0.48.0",
+  "google-generativeai>=0.8.4",
+  "nltk>=3.9.1",
+  "numpy>=2.2.3",
+  "openai>=1.66.3",
+  "pandas>=2.2.3",
+  "plotly>=6.0.0",
+  "PyYAML>=6.0.2",
+  "scikit-learn>=1.6.1",
+  "sentence-transformers>=3.4.1",
+  "spacy>=3.8.4",
+  "streamlit>=1.43.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.5",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
