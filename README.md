@@ -1,45 +1,58 @@
 # Technical Reference: Lexical Reduction and Convolution (LRC)
 
-## 1. Overview
+## Overview
 
-**Lexical Reduction and Convolution** is a bidirectional, LLM-mediated methodology for processing and compressing semantic information. Rather than compressing text at the character or token level, this framework operates directly on the _meaning_ (semantics) of the text. It functions through a two-step "breathing" process: expanding a lexical input into a dense semantic cloud, and then mathematically/conceptually "convolving" that cloud back into an optimized, singular lexical representation.
+**Lexical Reduction and Convolution** is a bidirectional, LLM-mediated methodology for processing and compressing semantic information. Rather than compressing text at the character or token level, this framework operates directly on meaning. It functions through a two-step process:
 
-## 2. Core Mechanisms
+1. Expand a lexical input into a dense semantic cloud.
+2. Convolve that cloud back into an optimized lexical representation.
 
-The framework consists of two primary, opposing operations:
+## Core Mechanisms
 
-### A. Lexical Expansion (Semantic Unpacking)
+The framework consists of two primary, opposing operations.
 
-- **Process:** A source word, phrase, or text is expanded into its fundamental semantic components.
-- **Mechanism:** This is achieved by utilizing dictionary definitions and LLM-formulated contextual meanings. The target word is "exploded" into a comprehensive "definition cloud."
-- **Output:** A larger, highly detailed slice of text that captures the explicit definitions, implicit connotations, and contextual boundaries of the original input.
+### Lexical Expansion (Semantic Unpacking)
 
-### B. Lexical Convolution (Semantic Reduction)
+- **Process:** A source word, phrase, or text is expanded into its semantic components.
+- **Mechanism:** Dictionary definitions and LLM-formulated contextual meanings are combined into a comprehensive definition cloud.
+- **Output:** A detailed slice of text that captures explicit definitions, implicit connotations, and contextual boundaries.
 
-- **Process:** The inverse of expansion. It takes a broad slice of text (such as the definition cloud generated in the first step) and compresses it.
-- **Mechanism:** The system scans the expanded text and reformulates the meaning, finding the single best word or highly condensed phrase that perfectly encapsulates that specific slice of text.
-- **Output:** A synthesized, highly dense lexical representation (a single word or tight phrase) that acts as the "root" of the expanded concept.
+### Lexical Convolution (Semantic Reduction)
 
-## 3. Workflow / Pipeline
+- **Process:** The inverse of expansion. A broad semantic slice is compressed.
+- **Mechanism:** The system searches for the best word or highly condensed phrase that encapsulates the expanded meaning.
+- **Output:** A dense lexical representation that acts as the root of the expanded concept.
 
-1.  **Input:** A baseline word, phrase, or sentence.
-2.  **Phase 1 (Expand):** Feed the input into the LLM alongside dictionary constraints to generate a high-dimensional "semantic cloud" (Lexical Expansion).
-3.  **Phase 2 (Convolve):** Pass the resulting expanded text back through a reduction prompt/operator, forcing the system to find the optimal, singular conceptual fit (Lexical Convolution).
-4.  **Output:** A new, refined word or phrase that represents the reformulated meaning of the original input.
+## Workflow
 
-## 4. Theoretical Properties & System Dynamics
+1. **Input:** A baseline word, phrase, or sentence.
+2. **Phase 1 (Expand):** Generate a high-dimensional semantic cloud under dictionary and model constraints.
+3. **Phase 2 (Convolve):** Reduce the expanded cloud to an optimal lexical fit.
+4. **Output:** A refined word or phrase that reformulates the original meaning.
 
-While the base mechanics act as a semantic compressor, applying this process recursively unlocks advanced dynamical behaviors.
+## Theoretical Properties and System Dynamics
 
-**Behavior Under Recursion (Semantic Resilience vs. Collapse):**
-If the output of the Convolution phase is fed back into the Expansion phase repeatedly, the system can be observed as a dynamic topological model of meaning. Key behaviors to test and document in future models include:
+While the base mechanics act as a semantic compressor, recursive application unlocks dynamical behaviors.
 
-- **Fixed-Point Convergence:** Does the word eventually lock into an immutable "root" concept that survives infinite cycles of expansion and convolution?
-- **Oscillation:** Does the system get trapped in a loop between two or more related concepts (e.g., oscillating between "sadness" and "grief")?
-- **Semantic Drift / Collapse:** Does the meaning slowly decay, lose context, or flatten out into generic noise after multiple iterations?
+When the output of Convolution is fed back into Expansion repeatedly, the system can be treated as a topological model of meaning. Key behaviors to test and document:
 
-## 5. Potential Applications
+- **Fixed-Point Convergence:** Whether a concept locks into an immutable root under repeated cycles.
+- **Oscillation:** Whether the system loops between related concepts (for example, "sadness" and "grief").
+- **Semantic Drift or Collapse:** Whether meaning decays, loses context, or flattens into generic noise.
 
-- **Semantic Compression:** Storing complex ideas as highly dense, LLM-retrievable "seed words" or short phrases.
-- **Concept Refinement:** Taking messy, human-written text and convolving it down to its absolute core conceptual root.
-- **Latent Space Mapping:** Using the recursive stability of words to map out the "attractor basins" of an LLM’s underlying semantic training data (i.e., finding out which concepts have the strongest gravitational pull in the model's latent space).
+## Potential Applications
+
+- **Semantic Compression:** Store complex ideas as dense, retrievable seed words or short phrases.
+- **Concept Refinement:** Convolve long-form text to core conceptual roots.
+- **Latent Space Mapping:** Map semantic attractor basins by observing recursive stability and collapse dynamics.
+
+## Governance and ADRs
+
+- Architectural Decision Records (ADRs) are stored in [docs/adr/README.md](docs/adr/README.md).
+- All implementation and process rules should be recorded through ADRs.
+
+## Repository Setup (Milestone 3)
+
+Milestone 3 introduces a modular semantic reduction engine, recursive attractor analysis, mode-selectable pipelines (Mode 0-4), and a Streamlit dashboard.
+
+Detailed setup and run instructions are maintained with the codebase and must be updated alongside implementation changes.
