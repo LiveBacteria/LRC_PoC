@@ -92,7 +92,9 @@ def reduce_definitions_to_terms(
         normalized = _normalize_definition(mapping.definition)
         exact = definition_index.get(normalized)
         if exact:
-            reduced.append(exact)
+            # Preserve original token on exact definition matches produced by
+            # the literal expansion operator. This keeps expand/reduce cycles coherent.
+            reduced.append(mapping.token.lower())
             continue
         # Fallback: semantic reduction over the definition slice.
         result = pipeline.run_once(mapping.definition, mode=mode, top_k=5, max_candidates=200)

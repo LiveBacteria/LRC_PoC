@@ -6,6 +6,7 @@ from lrc_poc.pipeline import LRCPipeline
 from lrc_poc.sentence_ops import (
     compose_expanded_sentence,
     expand_sentence_to_definitions,
+    reduce_definitions_to_terms,
     run_sentence_definition_cycle,
 )
 
@@ -36,3 +37,27 @@ def test_run_sentence_definition_cycle(sample_lexicon) -> None:
     assert cycle["expanded_sentence"]
     assert cycle["reduced_sentence"]
     assert isinstance(cycle["mappings"], list)
+
+
+def test_definition_cycle_preserves_original_tokens_on_exact_matches(sample_lexicon) -> None:
+    from lrc_poc.models import LexiconEntry
+
+    mappings = expand_sentence_to_definitions("cat jumped over dog")
+    custom_lexicon = tuple(
+        LexiconEntry(
+            word=item.token.lower(),
+            lemma=item.token.lower(),
+            part_of_speech="n",
+            definition=item.definition,
+            sense_count=1,
+        )
+        for item in mappings
+    )
+    pipeline = LRCPipeline(lexicon=custom_lexicon, provider=None)
+    reduced = reduce_definitions_to_terms(
+        mappings=mappings,
+        lexicon=custom_lexicon,
+        pipeline=pipeline,
+        mode=0,
+    )
+    assert " ".join(reduced) == "cat jumped over dog"
