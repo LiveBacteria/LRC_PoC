@@ -84,6 +84,7 @@ def reduce_definitions_to_terms(
     lexicon: tuple["LexiconEntry", ...] | list["LexiconEntry"],
     pipeline: "LRCPipeline",
     mode: int,
+    use_semantic_fallback: bool = False,
 ) -> tuple[str, ...]:
     """Reduce literal definitions back to terms using exact definition matches first."""
     definition_index = _build_definition_index(lexicon)
@@ -96,9 +97,12 @@ def reduce_definitions_to_terms(
             # the literal expansion operator. This keeps expand/reduce cycles coherent.
             reduced.append(mapping.token.lower())
             continue
-        # Fallback: semantic reduction over the definition slice.
-        result = pipeline.run_once(mapping.definition, mode=mode, top_k=5, max_candidates=200)
-        reduced.append(result.winner.word)
+        if use_semantic_fallback:
+            # Optional semantic fallback over the definition slice.
+            result = pipeline.run_once(mapping.definition, mode=mode, top_k=5, max_candidates=200)
+            reduced.append(result.winner.word)
+        else:
+            reduced.append(mapping.token.lower())
     return tuple(reduced)
 
 
