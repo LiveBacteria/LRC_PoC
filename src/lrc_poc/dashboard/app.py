@@ -113,7 +113,7 @@ def _render_attractor_result(result) -> None:
 
 def main() -> None:
     st.set_page_config(page_title="LRC Milestone 3 Dashboard", layout="wide")
-    st.title("LRC Milestone 3: Semantic Attractor Dashboard")
+    st.title("LRC Milestone 3: Sentence Definition Engine")
 
     with st.sidebar:
         st.header("Run Controls")
@@ -128,20 +128,28 @@ def main() -> None:
 
     st.subheader("Single Reduction")
     single_text = st.text_input("Input Text", value="grief")
+    show_global = st.checkbox("Show Global Compression (Debug)", value=False)
     if st.button("Run Single Reduction", width="stretch"):
-        result = pipeline.run_once(single_text, mode=mode, top_k=top_k)
         cycle = run_sentence_definition_cycle(
             text=single_text,
             lexicon=pipeline.lexicon,
             pipeline=pipeline,
             mode=mode,
         )
-        st.write(f"Winner: `{result.winner.word}`")
-        st.write(f"Confidence: `{result.confidence:.4f}`")
-        if result.fallback_reason:
-            st.warning(result.fallback_reason)
+        st.write(f"Reduced Sentence: `{cycle['reduced_sentence']}`")
         _render_sentence_cycle(cycle)
-        _render_top_candidates(result)
+
+        token_count = len([piece for piece in single_text.strip().split() if piece])
+        sentence_input = token_count > 1
+        if sentence_input and not show_global:
+            st.info("Sentence mode: global single-token compression hidden. Enable debug to view it.")
+        else:
+            result = pipeline.run_once(single_text, mode=mode, top_k=top_k)
+            st.write(f"Global Compression Winner: `{result.winner.word}`")
+            st.write(f"Confidence: `{result.confidence:.4f}`")
+            if result.fallback_reason:
+                st.warning(result.fallback_reason)
+            _render_top_candidates(result)
 
     st.subheader("Recursive Analysis")
     recurse_text = st.text_input("Recursion Seed", value="grief", key="recurse_seed")

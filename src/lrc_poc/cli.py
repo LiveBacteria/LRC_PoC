@@ -26,6 +26,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
     run_once_parser = subparsers.add_parser("run-once", parents=[shared])
     run_once_parser.add_argument("--text", required=True)
+    run_once_parser.add_argument(
+        "--include-global-compression",
+        action="store_true",
+        help="Also compute global lexical compression for sentence input.",
+    )
 
     recurse_parser = subparsers.add_parser("recurse", parents=[shared])
     recurse_parser.add_argument("--text", required=True)
@@ -68,21 +73,35 @@ def main() -> None:
     pipeline = LRCPipeline(lexicon=lexicon)
 
     if args.command == "run-once":
-        result = pipeline.run_once(
-            text=args.text,
-            mode=args.mode,
-            top_k=args.top_k,
-            max_candidates=args.max_candidates,
-        )
         sentence_cycle = run_sentence_definition_cycle(
             text=args.text,
             lexicon=lexicon,
             pipeline=pipeline,
             mode=args.mode,
         )
+        token_count = len([piece for piece in args.text.strip().split() if piece])
+        sentence_input = token_count > 1
+
+        if sentence_input and not args.include_global_compression:
+            _print_payload(
+                {
+                    "mode": args.mode,
+                    "result_type": "sentence_cycle",
+                    "definition_cycle": sentence_cycle,
+                }
+            )
+            return
+
+        result = pipeline.run_once(
+            text=args.text,
+            mode=args.mode,
+            top_k=args.top_k,
+            max_candidates=args.max_candidates,
+        )
         _print_payload(
             {
                 "mode": args.mode,
+                "result_type": "global_compression",
                 "winner": result.winner.word,
                 "confidence": result.confidence,
                 "fallback_reason": result.fallback_reason,

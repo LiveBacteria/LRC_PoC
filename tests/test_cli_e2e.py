@@ -31,8 +31,9 @@ def test_cli_run_once() -> None:
         "--limit-per-pos",
         "200",
     )
-    assert payload["winner"]
-    assert len(payload["top_k"]) >= 1
+    assert payload["result_type"] == "sentence_cycle"
+    assert payload["definition_cycle"]["expanded_sentence"]
+    assert payload["definition_cycle"]["reduced_sentence"]
 
 
 def test_cli_recurse() -> None:
