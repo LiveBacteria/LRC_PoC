@@ -129,16 +129,16 @@ Config loading behavior:
 
 ## CLI Usage
 
-Run once:
+Run once (sentence input):
 
 ```powershell
-python -m lrc_poc.cli run-once --text "grief" --mode 0
+python -m lrc_poc.cli run-once --text "a feeling of loss tied specifically to death and emotional absence" --mode 0
 ```
 
-Run recursion:
+Run recursion (sentence input):
 
 ```powershell
-python -m lrc_poc.cli recurse --text "grief" --iterations 10 --mode 0
+python -m lrc_poc.cli recurse --text "a positive emotional state with pleasure and contentment" --iterations 10 --mode 0
 ```
 
 Run attractor map:
@@ -146,6 +146,8 @@ Run attractor map:
 ```powershell
 python -m lrc_poc.cli map --seed-count 200 --iterations 10 --mode 0 --out artifacts
 ```
+
+Word and short-phrase inputs are also supported, but sentence inputs are first-class and covered by tests.
 
 ## Dashboard
 

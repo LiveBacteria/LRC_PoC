@@ -23,7 +23,7 @@ def test_cli_run_once() -> None:
     payload = _run_cli(
         "run-once",
         "--text",
-        "grief",
+        "a feeling of loss tied specifically to death and emotional absence",
         "--mode",
         "0",
         "--max-entries",
@@ -39,7 +39,7 @@ def test_cli_recurse() -> None:
     payload = _run_cli(
         "recurse",
         "--text",
-        "grief",
+        "a positive emotional state with pleasure and contentment",
         "--iterations",
         "4",
         "--mode",
