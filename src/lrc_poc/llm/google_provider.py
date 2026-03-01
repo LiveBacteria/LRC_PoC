@@ -19,6 +19,7 @@ class GoogleProvider(BaseLLMProvider):
         "gemini-1.5-pro",
         "gemini-1.5-flash",
     )
+    _STALE_DEFAULTS = {"gemini-1.5-flash", "gemini-1.5-pro"}
 
     def __init__(self, api_key: str, model_name: str = "") -> None:
         super().__init__(
@@ -75,8 +76,10 @@ class GoogleProvider(BaseLLMProvider):
 
         configured_name = self._normalize_model_name(self.config.model_name)
         if configured_name and not ignore_config:
-            self._resolved_model_name = configured_name
-            return self._resolved_model_name
+            # Trust explicit modern model choices. Auto-discover only for known stale defaults.
+            if configured_name not in self._STALE_DEFAULTS:
+                self._resolved_model_name = configured_name
+                return self._resolved_model_name
 
         available = self._list_compatible_models()
         selected = self._pick_preferred_model(available)

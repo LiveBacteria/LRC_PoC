@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 from pathlib import Path
 
@@ -26,6 +27,16 @@ def _build_parser() -> argparse.ArgumentParser:
 
     run_once_parser = subparsers.add_parser("run-once", parents=[shared])
     run_once_parser.add_argument("--text", required=True)
+    run_once_parser.add_argument(
+        "--definition-style",
+        choices=["literal_first", "semantic_relational", "literal_raw"],
+        default="literal_first",
+    )
+    run_once_parser.add_argument(
+        "--semantic-fallback-reduction",
+        action="store_true",
+        help="Allow semantic fallback when exact definition-to-term match is unavailable.",
+    )
     run_once_parser.add_argument(
         "--include-global-compression",
         action="store_true",
@@ -65,6 +76,28 @@ def _print_payload(payload: dict[str, object]) -> None:
     print(json.dumps(payload, indent=2))
 
 
+def _run_sentence_cycle_compat(
+    *,
+    text: str,
+    lexicon,
+    pipeline: LRCPipeline,
+    mode: int,
+    definition_style: str,
+    semantic_fallback_reduction: bool,
+) -> dict[str, object]:
+    signature = inspect.signature(run_sentence_definition_cycle)
+    kwargs = {
+        "text": text,
+        "lexicon": lexicon,
+        "pipeline": pipeline,
+        "mode": mode,
+        "definition_style": definition_style,
+        "use_semantic_fallback": semantic_fallback_reduction,
+    }
+    supported = {key: value for key, value in kwargs.items() if key in signature.parameters}
+    return run_sentence_definition_cycle(**supported)
+
+
 def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
@@ -73,11 +106,13 @@ def main() -> None:
     pipeline = LRCPipeline(lexicon=lexicon)
 
     if args.command == "run-once":
-        sentence_cycle = run_sentence_definition_cycle(
+        sentence_cycle = _run_sentence_cycle_compat(
             text=args.text,
             lexicon=lexicon,
             pipeline=pipeline,
             mode=args.mode,
+            definition_style=args.definition_style,
+            semantic_fallback_reduction=args.semantic_fallback_reduction,
         )
         token_count = len([piece for piece in args.text.strip().split() if piece])
         sentence_input = token_count > 1

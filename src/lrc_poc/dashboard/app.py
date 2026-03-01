@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 from pathlib import Path
 
@@ -52,6 +53,29 @@ def _render_sentence_cycle(cycle: dict[str, object]) -> None:
     st.code(str(cycle["reduced_sentence"]))
     mapping_df = pd.DataFrame(cycle["mappings"])
     st.dataframe(mapping_df, width="stretch")
+
+
+def _run_sentence_cycle_compat(
+    *,
+    text: str,
+    lexicon,
+    pipeline: LRCPipeline,
+    mode: int,
+    definition_style: str,
+    use_semantic_fallback: bool,
+) -> dict[str, object]:
+    """Call sentence-cycle operator while tolerating older function signatures."""
+    signature = inspect.signature(run_sentence_definition_cycle)
+    kwargs = {
+        "text": text,
+        "lexicon": lexicon,
+        "pipeline": pipeline,
+        "mode": mode,
+        "definition_style": definition_style,
+        "use_semantic_fallback": use_semantic_fallback,
+    }
+    supported = {key: value for key, value in kwargs.items() if key in signature.parameters}
+    return run_sentence_definition_cycle(**supported)
 
 
 def _render_recursion(iterations) -> None:
@@ -128,13 +152,21 @@ def main() -> None:
 
     st.subheader("Single Reduction")
     single_text = st.text_input("Input Text", value="grief")
+    definition_style = st.selectbox(
+        "Definition Style",
+        options=["literal_first", "semantic_relational", "literal_raw"],
+        index=0,
+    )
+    semantic_fallback = st.checkbox("Semantic fallback reduction", value=False)
     show_global = st.checkbox("Show Global Compression (Debug)", value=False)
     if st.button("Run Single Reduction", width="stretch"):
-        cycle = run_sentence_definition_cycle(
+        cycle = _run_sentence_cycle_compat(
             text=single_text,
             lexicon=pipeline.lexicon,
             pipeline=pipeline,
             mode=mode,
+            definition_style=definition_style,
+            use_semantic_fallback=semantic_fallback,
         )
         st.write(f"Reduced Sentence: `{cycle['reduced_sentence']}`")
         _render_sentence_cycle(cycle)

@@ -6,11 +6,10 @@ from collections import Counter
 import re
 
 import nltk
-from nltk.corpus import wordnet as wn
 from nltk.stem import WordNetLemmatizer
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 
-from .lexicon import LexiconResourceError, ensure_wordnet_available
+from .lexicon import LexiconResourceError, ensure_wordnet_available, wordnet_synsets
 from .models import SemanticCloud
 
 TOKEN_PATTERN = re.compile(r"[A-Za-z][A-Za-z\-']+")
@@ -66,7 +65,7 @@ def extract_key_terms(text: str, max_terms: int = 12) -> tuple[str, ...]:
 
 def _preferred_pos(key_terms: tuple[str, ...]) -> str:
     for term in key_terms:
-        synsets = wn.synsets(term)
+        synsets = wordnet_synsets(term)
         if synsets:
             return synsets[0].pos()
     return "n"
@@ -97,7 +96,7 @@ def expand_text(
     negatives: set[str] = set()
 
     for term in key_terms:
-        for synset in wn.synsets(term)[:max_synsets_per_term]:
+        for synset in wordnet_synsets(term)[:max_synsets_per_term]:
             definitions.append(synset.definition())
             constraints.add(f"respect domain: {synset.lexname()}")
             for lemma in synset.lemma_names():

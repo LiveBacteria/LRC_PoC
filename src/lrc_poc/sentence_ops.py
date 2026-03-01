@@ -6,9 +6,7 @@ from dataclasses import dataclass
 import re
 from typing import TYPE_CHECKING
 
-from nltk.corpus import wordnet as wn
-
-from .lexicon import ensure_wordnet_available
+from .lexicon import ensure_wordnet_available, wordnet_synsets
 
 if TYPE_CHECKING:
     from .models import LexiconEntry
@@ -29,16 +27,65 @@ def _normalize_definition(definition: str) -> str:
     return normalized
 
 
-def _definition_for_token(token: str) -> str:
-    synsets = wn.synsets(token.lower())
+def _clip_definition(definition: str) -> str:
+    clipped = definition.strip()
+    if ";" in clipped:
+        clipped = clipped.split(";", 1)[0].strip()
+    if " -- " in clipped:
+        clipped = clipped.split(" -- ", 1)[0].strip()
+    return clipped
+
+
+def _literal_definition_for_token(token: str, raw: bool = False) -> str:
+    synsets = wordnet_synsets(token.lower())
     if not synsets:
         return token.lower()
     definition = synsets[0].definition().strip()
-    return definition if definition else token.lower()
+    if not definition:
+        return token.lower()
+    return definition if raw else _clip_definition(definition)
 
 
-def expand_sentence_to_definitions(text: str) -> tuple[DefinitionMapping, ...]:
-    """Replace each lexical token in a sentence with its literal WordNet definition."""
+def _semantic_definition_for_token(
+    token: str,
+    pipeline: "LRCPipeline | None",
+    mode: int,
+) -> str:
+    if pipeline is not None and mode in {1, 2, 3, 4}:
+        provider = getattr(pipeline, "provider", None)
+        if provider is not None and provider.is_configured():
+            try:
+                payload = provider.expand_cloud(token.lower())
+                definitions = payload.get("definitions", [])
+                if isinstance(definitions, list) and definitions:
+                    candidate = _clip_definition(str(definitions[0]))
+                    if candidate:
+                        return candidate
+            except Exception:
+                pass
+    return _literal_definition_for_token(token, raw=False)
+
+
+def _definition_for_token(
+    token: str,
+    definition_style: str,
+    pipeline: "LRCPipeline | None",
+    mode: int,
+) -> str:
+    if definition_style == "semantic_relational":
+        return _semantic_definition_for_token(token=token, pipeline=pipeline, mode=mode)
+    if definition_style == "literal_raw":
+        return _literal_definition_for_token(token=token, raw=True)
+    return _literal_definition_for_token(token=token, raw=False)
+
+
+def expand_sentence_to_definitions(
+    text: str,
+    definition_style: str = "literal_first",
+    pipeline: "LRCPipeline | None" = None,
+    mode: int = 0,
+) -> tuple[DefinitionMapping, ...]:
+    """Replace each lexical token in a sentence with a configured definition style."""
     ensure_wordnet_available(download=False)
     mappings: list[DefinitionMapping] = []
     for match in WORD_PATTERN.finditer(text):
@@ -46,7 +93,12 @@ def expand_sentence_to_definitions(text: str) -> tuple[DefinitionMapping, ...]:
         mappings.append(
             DefinitionMapping(
                 token=token,
-                definition=_definition_for_token(token),
+                definition=_definition_for_token(
+                    token=token,
+                    definition_style=definition_style,
+                    pipeline=pipeline,
+                    mode=mode,
+                ),
             )
         )
     return tuple(mappings)
@@ -111,15 +163,30 @@ def run_sentence_definition_cycle(
     lexicon: tuple["LexiconEntry", ...] | list["LexiconEntry"],
     pipeline: "LRCPipeline",
     mode: int,
+    definition_style: str = "literal_first",
+    use_semantic_fallback: bool = False,
 ) -> dict[str, object]:
     """Execute one expand/reduce sentence cycle aligned with definition-replacement semantics."""
-    mappings = expand_sentence_to_definitions(text)
+    mappings = expand_sentence_to_definitions(
+        text=text,
+        definition_style=definition_style,
+        pipeline=pipeline,
+        mode=mode,
+    )
     expanded_sentence = compose_expanded_sentence(text, mappings)
-    reduced_terms = reduce_definitions_to_terms(mappings, lexicon=lexicon, pipeline=pipeline, mode=mode)
+    reduced_terms = reduce_definitions_to_terms(
+        mappings,
+        lexicon=lexicon,
+        pipeline=pipeline,
+        mode=mode,
+        use_semantic_fallback=use_semantic_fallback,
+    )
     reduced_sentence = " ".join(reduced_terms)
     return {
         "expanded_sentence": expanded_sentence,
         "reduced_sentence": reduced_sentence,
+        "definition_style": definition_style,
+        "semantic_fallback_reduction": use_semantic_fallback,
         "mappings": [
             {
                 "token": mapping.token,

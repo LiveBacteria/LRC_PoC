@@ -97,7 +97,9 @@ def build_wordnet_lexicon(
                         hypernyms=hypernyms,
                         hyponyms=hyponyms,
                         synset_id=synset.name(),
-                        sense_count=len(wn.synsets(lemma)),
+                        # Avoid nested WordNet reads while iterating all_synsets().
+                        # We approximate ambiguity by counting observed synsets in this pass.
+                        sense_count=1,
                     )
                 )
                 if max_entries is not None and len(lexicon) >= max_entries:

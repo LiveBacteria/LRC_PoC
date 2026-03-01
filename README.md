@@ -171,7 +171,10 @@ streamlit run src/lrc_poc/dashboard/app.py
 
 The dashboard provides:
 
-- Single reduction with top-k ranking.
+- Sentence definition expansion/reduction cycle as primary output.
+- Definition style controls: `literal_first`, `semantic_relational`, `literal_raw`.
+- Optional semantic fallback reduction toggle.
+- Optional global compression debug view (disabled by default for sentence inputs).
 - Recursion trajectory and drift/entropy plotting.
 - Attractor basin mapping with artifact downloads.
 

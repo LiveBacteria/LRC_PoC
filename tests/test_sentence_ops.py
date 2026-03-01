@@ -17,6 +17,9 @@ def test_expand_sentence_to_definitions_basic() -> None:
     assert "cat" in tokens
     assert "dog" in tokens
     assert all(item.definition for item in mappings)
+    cat_defs = [item.definition for item in mappings if item.token.lower() == "cat"]
+    assert cat_defs
+    assert ";" not in cat_defs[0]
 
 
 def test_compose_expanded_sentence_replaces_words() -> None:

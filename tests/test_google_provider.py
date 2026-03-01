@@ -27,3 +27,10 @@ def test_google_provider_can_override_stale_config(monkeypatch) -> None:
     monkeypatch.setattr(provider, "_list_compatible_models", lambda: ["gemini-2.0-flash"])
     chosen = provider._resolve_model_name(force_refresh=True, ignore_config=True)
     assert chosen == "gemini-2.0-flash"
+
+
+def test_google_provider_replaces_stale_config_automatically(monkeypatch) -> None:
+    provider = GoogleProvider(api_key="x", model_name="gemini-1.5-flash")
+    monkeypatch.setattr(provider, "_list_compatible_models", lambda: ["gemini-2.5-pro"])
+    chosen = provider._resolve_model_name()
+    assert chosen == "gemini-2.5-pro"

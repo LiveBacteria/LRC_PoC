@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import re
 
-from nltk.corpus import wordnet as wn
-
+from .lexicon import wordnet_synsets
 from .models import LexiconEntry, SemanticCloud
 
 WORD_PATTERN = re.compile(r"[A-Za-z][A-Za-z\-']+")
@@ -44,7 +43,7 @@ def generate_candidates(
 
     # Expand neighborhood directly from WordNet around key terms.
     for term in tuple(seed_terms):
-        for synset in wn.synsets(term)[:6]:
+        for synset in wordnet_synsets(term)[:6]:
             for lemma in synset.lemma_names():
                 seed_terms.add(lemma.replace("_", " ").lower())
             for hypernym in synset.hypernyms():
