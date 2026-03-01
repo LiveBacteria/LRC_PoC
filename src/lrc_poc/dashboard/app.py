@@ -101,9 +101,13 @@ def _render_sentence_cycle(cycle: dict[str, object]) -> None:
     st.markdown("**Reduction**")
     st.code(str(cycle["reduced_sentence"]))
 
-    mapping_df = pd.DataFrame(cycle["mappings"])
-    st.markdown("**Token-Level Mapping**")
-    st.dataframe(mapping_df, width="stretch")
+    token_mapping_df = pd.DataFrame(cycle["token_mappings"])
+    st.markdown("**Token -> Definition Expansion**")
+    st.dataframe(token_mapping_df, width="stretch")
+
+    segment_df = pd.DataFrame(cycle["reduction_segments"])
+    st.markdown("**Definition-String -> Reduced-String Segments**")
+    st.dataframe(segment_df, width="stretch")
 
 
 def _render_top_candidates(result) -> None:

@@ -253,25 +253,82 @@ def reduce_definitions_to_terms(
     pipeline: "LRCPipeline",
     mode: int,
     use_semantic_fallback: bool = False,
-) -> tuple[str, ...]:
-    """Reduce literal definitions back to terms using exact definition matches first."""
+) -> tuple[tuple[str, ...], tuple[dict[str, object], ...]]:
+    """Reduce expanded definition strings to lexical strings, optionally across spans."""
     definition_index = _build_definition_index(lexicon)
-    reduced: list[str] = []
-    for mapping in mappings:
-        normalized = _normalize_definition(mapping.definition)
-        exact = definition_index.get(normalized)
-        if exact:
-            # Preserve original token on exact definition matches produced by
-            # the literal expansion operator. This keeps expand/reduce cycles coherent.
-            reduced.append(mapping.token.lower())
-            continue
-        if use_semantic_fallback:
-            # Optional semantic fallback over the definition slice.
-            result = pipeline.run_once(mapping.definition, mode=mode, top_k=5, max_candidates=200)
-            reduced.append(result.winner.word)
-        else:
-            reduced.append(mapping.token.lower())
-    return tuple(reduced)
+    reduced_phrases: list[str] = []
+    segments: list[dict[str, object]] = []
+
+    index = 0
+    max_span = 3
+    while index < len(mappings):
+        selected_span_len = 1
+        selected_phrase = mappings[index].token.lower()
+        selected_method = "token_preserve"
+        selected_confidence: float | None = None
+        selected_definition_text = mappings[index].definition
+
+        for span_len in range(min(max_span, len(mappings) - index), 0, -1):
+            span = mappings[index : index + span_len]
+            span_definition = " ".join(item.definition for item in span).strip()
+            normalized = _normalize_definition(span_definition)
+
+            exact = definition_index.get(normalized)
+            if exact:
+                selected_span_len = span_len
+                selected_phrase = exact if span_len > 1 else span[0].token.lower()
+                selected_method = "exact_definition_match"
+                selected_confidence = 1.0
+                selected_definition_text = span_definition
+                break
+
+            if use_semantic_fallback and span_len > 1:
+                result = pipeline.run_once(span_definition, mode=mode, top_k=5, max_candidates=250)
+                if result.confidence >= 0.45:
+                    selected_span_len = span_len
+                    selected_phrase = result.winner.word
+                    selected_method = "semantic_span_compression"
+                    selected_confidence = result.confidence
+                    selected_definition_text = span_definition
+                    break
+
+        if selected_span_len == 1 and selected_method == "token_preserve":
+            normalized = _normalize_definition(mappings[index].definition)
+            exact = definition_index.get(normalized)
+            if exact:
+                selected_method = "exact_token_roundtrip"
+                selected_confidence = 1.0
+            elif use_semantic_fallback:
+                result = pipeline.run_once(
+                    mappings[index].definition,
+                    mode=mode,
+                    top_k=5,
+                    max_candidates=200,
+                )
+                if result.confidence >= 0.35:
+                    selected_phrase = result.winner.word
+                    selected_method = "semantic_token_compression"
+                    selected_confidence = result.confidence
+                else:
+                    selected_method = "token_preserve_low_confidence"
+                    selected_confidence = result.confidence
+
+        token_span = mappings[index : index + selected_span_len]
+        reduced_phrases.append(selected_phrase)
+        segments.append(
+            {
+                "start_index": index,
+                "end_index": index + selected_span_len,
+                "source_tokens": " ".join(item.token for item in token_span),
+                "source_definition_text": selected_definition_text,
+                "reduced_phrase": selected_phrase,
+                "method": selected_method,
+                "confidence": selected_confidence,
+            }
+        )
+        index += selected_span_len
+
+    return tuple(reduced_phrases), tuple(segments)
 
 
 def run_sentence_definition_cycle(
@@ -290,7 +347,7 @@ def run_sentence_definition_cycle(
         mode=mode,
     )
     expanded_sentence = compose_expanded_sentence(text, mappings)
-    reduced_terms = reduce_definitions_to_terms(
+    reduced_terms, reduction_segments = reduce_definitions_to_terms(
         mappings,
         lexicon=lexicon,
         pipeline=pipeline,
@@ -303,12 +360,12 @@ def run_sentence_definition_cycle(
         "reduced_sentence": reduced_sentence,
         "definition_style": definition_style,
         "semantic_fallback_reduction": use_semantic_fallback,
-        "mappings": [
+        "token_mappings": [
             {
                 "token": mapping.token,
                 "definition": mapping.definition,
-                "reduced_term": reduced_terms[index],
             }
-            for index, mapping in enumerate(mappings)
+            for mapping in mappings
         ],
+        "reduction_segments": list(reduction_segments),
     }
