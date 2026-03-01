@@ -39,6 +39,7 @@ def test_run_sentence_definition_cycle(sample_lexicon) -> None:
     )
     assert cycle["expanded_sentence"]
     assert cycle["reduced_sentence"]
+    assert isinstance(cycle["mappings"], list)
     assert isinstance(cycle["token_mappings"], list)
     assert isinstance(cycle["reduction_segments"], list)
 

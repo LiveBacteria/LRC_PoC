@@ -9,6 +9,32 @@ The process alternates between:
 1. Expansion: unpack lexical input into a structured semantic cloud.
 2. Convolution: reduce the semantic cloud to the most semantically faithful lexical root.
 
+## LRC Working Hypothesis
+
+LRC is explored as a **language-mediated operator architecture**: language is not only the medium of input and output, but also the map and library through which transformation occurs. Expansion and reduction operate through a lexical-semantic atlas.
+
+**Core framing:** Let `A` = input (word, phrase, sentence, etc.), `Lambda` = the language map / lexical-semantic atlas, `E_Lambda` = expansion through the atlas, `R_Lambda` = reduction through the atlas. The working intuition is that expansion and reduction are directional counterparts, with local recovery:
+
+`R_Lambda(E_Lambda(A)) ≈ A`
+
+The project does not assume this holds in general; it aims to determine whether LRC is a valid architecture, how it behaves under composition and recursion, and under what conditions recovery or stability holds.
+
+**Working hypotheses** (abbreviated; full list in [docs/lrc_working_hypotheses.md](docs/lrc_working_hypotheses.md)):
+
+1. **LRC is a valid language-mediated architecture** — behavior governed by structured operator composition over a lexical-semantic atlas.
+2. **Expansion and reduction are directional counterparts** — inverse-like, at least locally for some inputs.
+3. **The map is foundational** — definitions, relations, grammar, and lexical neighborhoods form the map that determines what E and R can do.
+4. **LRC admits layered composition** — E/R may be composed (e.g. E→R, E→E→R, recursive R until irreducible).
+5. **LRC may exhibit dynamical regimes** — fixed-point convergence, oscillation, semantic drift, or collapse to canonical roots under recursion.
+6. **Parallel or conjunctive inputs may be reducible jointly** — combined meanings processed and convolved together.
+7. **LRC may apply to code** — same operator logic for expand/reduce on programming code.
+8. **Reduction may use multiple strategies** — whole-span, recursive, local phrase matching, grammar-sensitive, sliding-window.
+9. **Sliding-window reduction may be grammar-sensitive** — left-to-right window with definition matching.
+10. **Overlapping windows may matter** — compositional meaning may depend on partial reuse of context.
+11. **Recursive reduction may terminate in an irreducible state** — canonical semantic root or limit of atlas and strategy.
+
+See [docs/lrc_working_hypotheses.md](docs/lrc_working_hypotheses.md) for open questions and experimental direction.
+
 ## Core Mechanisms
 
 ### Lexical Expansion (Semantic Unpacking)
@@ -131,19 +157,19 @@ Config loading behavior:
 
 ## CLI Usage
 
-Run once (sentence input):
+Run once (sentence cycle primary output):
 
 ```powershell
-python -m lrc_poc.cli run-once --text "a feeling of loss tied specifically to death and emotional absence" --mode 0
+python -m lrc_poc.cli run-once --text "The cat jumped over the dog." --mode 4 --definition-style literal_first
 ```
 
-Run recursion (sentence input):
+Run recursion (advanced lexical diagnostics):
 
 ```powershell
 python -m lrc_poc.cli recurse --text "a positive emotional state with pleasure and contentment" --iterations 10 --mode 0
 ```
 
-Run attractor map:
+Run attractor map (advanced research diagnostics):
 
 ```powershell
 python -m lrc_poc.cli map --seed-count 200 --iterations 10 --mode 0 --out artifacts
@@ -151,17 +177,26 @@ python -m lrc_poc.cli map --seed-count 200 --iterations 10 --mode 0 --out artifa
 
 Word and short-phrase inputs are also supported, but sentence inputs are first-class and covered by tests.
 
-## Output Interpretation
+## Dashboard Modes
 
-- `lexical_entropy` is a normalized uncertainty score over top-k candidate scores at each recursion step.
-- Higher entropy means several candidates were similarly plausible.
-- Lower entropy means the reducer had a clear winner.
+The Streamlit app is split into milestone tabs:
 
-Why a word can map to a different word:
+- `Milestone 1 - Expand/Reduce`: core sentence operator (definition expansion + section-wise reduction).
+- `Milestone 2 - Sentence Cycles`: repeated sentence-level expansion/reduction.
+- `Milestone 3 - Attractor Analysis`: advanced lexical attractor research diagnostics.
 
-- Milestone 3 studies semantic attractors under expansion->reduction recursion.
-- The reducer projects meaning onto the best lexical fit, which can move from the literal input token to a nearby conceptual root.
-- In Mode 2 and Mode 4, LLM short-phrase candidates are preserved to support more coherent sentence-level compression.
+## Control Meanings
+
+- `Definition Style`:
+  - `literal_first`: first concise literal definition clause.
+  - `semantic_relational`: relation-focused meaning phrase (LLM-assisted when available).
+  - `literal_raw`: full raw WordNet definition text.
+- `Semantic fallback reduction`:
+  - `off`: strict token-preserving reduction when exact definition match is not found.
+  - `on`: allow semantic replacement for unmatched definition slices.
+- `Lexicon Max Entries` (M3 advanced): upper bound on candidate lexicon size for runtime control.
+- `Limit Per POS` (M3 advanced): caps entries per part-of-speech class.
+- `Seed Count` and `Iterations` (M3 advanced): size and depth of attractor mapping experiments.
 
 ## Dashboard
 
@@ -175,8 +210,8 @@ The dashboard provides:
 - Definition style controls: `literal_first`, `semantic_relational`, `literal_raw`.
 - Optional semantic fallback reduction toggle.
 - Optional global compression debug view (disabled by default for sentence inputs).
-- Recursion trajectory and drift/entropy plotting.
-- Attractor basin mapping with artifact downloads.
+- Milestone 2 recursive sentence-cycle trace.
+- Milestone 3 attractor basin mapping with artifact downloads.
 
 ## Testing
 

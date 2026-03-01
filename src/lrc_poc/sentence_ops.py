@@ -355,11 +355,29 @@ def run_sentence_definition_cycle(
         use_semantic_fallback=use_semantic_fallback,
     )
     reduced_sentence = " ".join(reduced_terms)
+    token_level_reduced = [mapping.token.lower() for mapping in mappings]
+    for segment in reduction_segments:
+        start = int(segment["start_index"])
+        end = int(segment["end_index"])
+        reduced_phrase = str(segment["reduced_phrase"])
+        for idx in range(start, min(end, len(token_level_reduced))):
+            token_level_reduced[idx] = reduced_phrase
+
+    legacy_mappings = [
+        {
+            "token": mapping.token,
+            "definition": mapping.definition,
+            "reduced_term": token_level_reduced[index],
+        }
+        for index, mapping in enumerate(mappings)
+    ]
+
     return {
         "expanded_sentence": expanded_sentence,
         "reduced_sentence": reduced_sentence,
         "definition_style": definition_style,
         "semantic_fallback_reduction": use_semantic_fallback,
+        "mappings": legacy_mappings,
         "token_mappings": [
             {
                 "token": mapping.token,
