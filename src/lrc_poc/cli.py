@@ -24,6 +24,11 @@ def _build_parser() -> argparse.ArgumentParser:
     shared.add_argument("--max-candidates", type=int, default=300)
     shared.add_argument("--max-entries", type=int, default=80000)
     shared.add_argument("--limit-per-pos", type=int, default=0)
+    shared.add_argument(
+        "--use-domain-heuristics",
+        action="store_true",
+        help="Enable bootstrap domain priors for candidate generation.",
+    )
 
     run_once_parser = subparsers.add_parser("run-once", parents=[shared])
     run_once_parser.add_argument("--text", required=True)
@@ -103,7 +108,7 @@ def main() -> None:
     args = parser.parse_args()
 
     lexicon = _load_lexicon(max_entries=args.max_entries, limit_per_pos=args.limit_per_pos)
-    pipeline = LRCPipeline(lexicon=lexicon)
+    pipeline = LRCPipeline(lexicon=lexicon, use_domain_heuristics=args.use_domain_heuristics)
 
     if args.command == "run-once":
         sentence_cycle = _run_sentence_cycle_compat(
@@ -122,6 +127,7 @@ def main() -> None:
                 {
                     "mode": args.mode,
                     "result_type": "sentence_cycle",
+                    "use_domain_heuristics": args.use_domain_heuristics,
                     "definition_cycle": sentence_cycle,
                 }
             )
@@ -137,6 +143,7 @@ def main() -> None:
             {
                 "mode": args.mode,
                 "result_type": "global_compression",
+                "use_domain_heuristics": args.use_domain_heuristics,
                 "winner": result.winner.word,
                 "confidence": result.confidence,
                 "fallback_reason": result.fallback_reason,
@@ -164,6 +171,7 @@ def main() -> None:
             {
                 "mode": args.mode,
                 "iterations": args.iterations,
+                "use_domain_heuristics": args.use_domain_heuristics,
                 "summary": summarize_iterations(iterations),
                 "candidate_uncertainty_profile": lexical_entropy_profile(iterations),
                 "trajectory": [
@@ -199,6 +207,7 @@ def main() -> None:
         _print_payload(
             {
                 "mode": args.mode,
+                "use_domain_heuristics": args.use_domain_heuristics,
                 "seed_count": result.seed_count,
                 "iterations": result.iterations,
                 "fixed_points": result.fixed_points,

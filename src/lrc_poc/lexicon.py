@@ -22,6 +22,11 @@ def _normalize_token(value: str) -> str:
     return value.replace("_", " ").strip().lower()
 
 
+def _ambiguity_pos(part_of_speech: str) -> str:
+    # WordNet returns adjective satellites ("s") for pos="a" queries as well.
+    return "a" if part_of_speech == "s" else part_of_speech
+
+
 def ensure_wordnet_available(download: bool = False) -> None:
     """Ensure WordNet resources are available for lexicon operations."""
     try:
@@ -62,8 +67,16 @@ def build_wordnet_lexicon(
     lexicon: list[LexiconEntry] = []
     seen: set[tuple[str, str, str]] = set()
     per_pos_counts: dict[str, int] = defaultdict(int)
+    sense_counts: dict[tuple[str, str], int] = defaultdict(int)
 
     with _WORDNET_LOCK:
+        for synset in wn.all_synsets():
+            part_of_speech = synset.pos()
+            ambiguity_pos = _ambiguity_pos(part_of_speech)
+            for lemma_name in synset.lemma_names():
+                lemma = _normalize_token(lemma_name)
+                sense_counts[(lemma, ambiguity_pos)] += 1
+
         for synset in wn.all_synsets():
             part_of_speech = synset.pos()
             if limit_per_pos is not None and per_pos_counts[part_of_speech] >= limit_per_pos:
@@ -97,9 +110,8 @@ def build_wordnet_lexicon(
                         hypernyms=hypernyms,
                         hyponyms=hyponyms,
                         synset_id=synset.name(),
-                        # Avoid nested WordNet reads while iterating all_synsets().
-                        # We approximate ambiguity by counting observed synsets in this pass.
-                        sense_count=1,
+                        # Ambiguity is approximated as the lemma+POS synset count.
+                        sense_count=max(1, sense_counts[(lemma, _ambiguity_pos(part_of_speech))]),
                     )
                 )
                 if max_entries is not None and len(lexicon) >= max_entries:

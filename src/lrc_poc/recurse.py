@@ -47,6 +47,7 @@ def run_recursion(
     lexicon: tuple[LexiconEntry, ...] | list[LexiconEntry],
     iterations: int = 10,
     scorer: SemanticScorer | None = None,
+    use_domain_heuristics: bool = False,
     mode_used: int = 0,
     fallback_reason: str = "",
     expand_fn: Callable[[str], SemanticCloud] = safe_expand_text,
@@ -69,6 +70,7 @@ def run_recursion(
             lexicon=lexicon,
             scorer=local_scorer,
             top_k=10,
+            use_domain_heuristics=use_domain_heuristics,
             mode_used=mode_used,
             fallback_reason=fallback_reason,
         )

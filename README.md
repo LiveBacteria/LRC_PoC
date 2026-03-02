@@ -46,7 +46,7 @@ See [docs/lrc_working_hypotheses.md](docs/lrc_working_hypotheses.md) for open qu
 ### Lexical Convolution (Semantic Reduction)
 
 - **Process:** Compress semantic cloud back into lexical candidates.
-- **Mechanism:** Score candidates by definition similarity, lexical relations, keyword overlap, POS compatibility, concision, and ambiguity penalties.
+- **Mechanism:** Score candidates by definition similarity, lexical relations, keyword overlap, POS compatibility, concision, and ambiguity penalties (ambiguity from WordNet lemma+POS sense counts).
 - **Output:** Winner + top-k alternatives with score breakdown and confidence.
 
 ## Workflow
@@ -197,6 +197,7 @@ The Streamlit app is split into milestone tabs:
 - `Lexicon Max Entries` (M3 advanced): upper bound on candidate lexicon size for runtime control.
 - `Limit Per POS` (M3 advanced): caps entries per part-of-speech class.
 - `Seed Count` and `Iterations` (M3 advanced): size and depth of attractor mapping experiments.
+- `Use Domain Heuristics` (`--use-domain-heuristics` in CLI): opt-in bootstrap priors for known emotion clusters. Default is `off` to keep deterministic reduction domain-agnostic.
 
 ## Dashboard
 

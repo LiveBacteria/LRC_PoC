@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
+import csv
 
 from lrc_poc.attractor import map_attractors
 from lrc_poc.lexicon import build_wordnet_lexicon
@@ -25,6 +26,13 @@ def test_map_attractors_writes_artifacts(tmp_path: Path, sample_lexicon) -> None
 
     basin_payload = json.loads(Path(result.output_files[2]).read_text(encoding="utf-8"))
     assert isinstance(basin_payload, dict)
+
+    summary_file = Path(result.output_files[1])
+    with summary_file.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        first_row = next(reader)
+    assert first_row["use_domain_heuristics"] in {"True", "False"}
+    assert first_row["ambiguity_penalty_enabled"] in {"True", "False"}
 
 
 def test_map_attractors_is_repeatable(tmp_path: Path, sample_lexicon) -> None:

@@ -117,11 +117,13 @@ class LRCPipeline:
         config: AppConfig | None = None,
         provider: BaseLLMProvider | None = None,
         preferred_provider: str | None = None,
+        use_domain_heuristics: bool = False,
     ) -> None:
         if not lexicon:
             raise ValueError("lexicon is empty")
         self.lexicon = tuple(lexicon)
         self.scorer = scorer or SemanticScorer()
+        self.use_domain_heuristics = use_domain_heuristics
 
         if config is None:
             try:
@@ -185,7 +187,12 @@ class LRCPipeline:
                 )
             )
 
-        deterministic_entries = generate_candidates(cloud, self.lexicon, max_candidates=max_candidates)
+        deterministic_entries = generate_candidates(
+            cloud,
+            self.lexicon,
+            max_candidates=max_candidates,
+            use_domain_heuristics=self.use_domain_heuristics,
+        )
         merged = _dedupe_entries(
             list(proposed_entries) + list(deterministic_entries),
             max_items=max_candidates,
@@ -278,6 +285,7 @@ class LRCPipeline:
             scorer=self.scorer,
             top_k=top_k,
             max_candidates=max_candidates,
+            use_domain_heuristics=self.use_domain_heuristics,
             mode_used=mode,
             fallback_reason="; ".join(fallback_reasons),
             candidate_pool=candidate_pool,

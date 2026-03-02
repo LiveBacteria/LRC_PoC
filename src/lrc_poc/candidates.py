@@ -18,6 +18,7 @@ def generate_candidates(
     cloud: SemanticCloud,
     lexicon: tuple[LexiconEntry, ...] | list[LexiconEntry],
     max_candidates: int = 300,
+    use_domain_heuristics: bool = False,
 ) -> tuple[LexiconEntry, ...]:
     """Generate a bounded candidate pool based on lexical neighborhood."""
     if not lexicon:
@@ -33,13 +34,15 @@ def generate_candidates(
     for item in seed_terms:
         key_token_terms.update(_definition_tokens(item))
 
-    # Domain heuristics for frequent phrase-level concepts.
-    if {"death", "loss"} <= key_token_terms:
-        seed_terms.update({"bereavement", "mourning", "grief", "sorrow"})
-    if {"positive", "pleasure"} <= key_token_terms or "contentment" in key_token_terms:
-        seed_terms.update({"happiness", "joy", "contentment", "delight"})
-    if {"anger", "temper"} <= key_token_terms:
-        seed_terms.update({"anger", "rage", "fury", "wrath"})
+    # Optional bootstrap priors for known phrase-level clusters.
+    # Disabled by default to keep deterministic core behavior domain-agnostic.
+    if use_domain_heuristics:
+        if {"death", "loss"} <= key_token_terms:
+            seed_terms.update({"bereavement", "mourning", "grief", "sorrow"})
+        if {"positive", "pleasure"} <= key_token_terms or "contentment" in key_token_terms:
+            seed_terms.update({"happiness", "joy", "contentment", "delight"})
+        if {"anger", "temper"} <= key_token_terms:
+            seed_terms.update({"anger", "rage", "fury", "wrath"})
 
     # Expand neighborhood directly from WordNet around key terms.
     for term in tuple(seed_terms):

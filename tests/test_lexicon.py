@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from lrc_poc.lexicon import LexiconResourceError, build_wordnet_lexicon
+from lrc_poc.lexicon import LexiconResourceError, build_wordnet_lexicon, wordnet_synsets
 
 
 def test_build_wordnet_lexicon_contains_required_fields() -> None:
@@ -22,6 +22,23 @@ def test_build_wordnet_lexicon_is_deduplicated() -> None:
     lexicon = build_wordnet_lexicon(limit_per_pos=3, max_entries=30)
     keys = {(entry.word, entry.part_of_speech, entry.definition) for entry in lexicon}
     assert len(keys) == len(lexicon)
+
+
+def test_build_wordnet_lexicon_populates_sense_count() -> None:
+    lexicon = build_wordnet_lexicon(limit_per_pos=40, max_entries=300)
+    assert any(entry.sense_count > 1 for entry in lexicon)
+
+    single_token_entries = [
+        entry
+        for entry in lexicon
+        if " " not in entry.lemma and entry.part_of_speech in {"n", "v", "a", "r"}
+    ]
+    assert len(single_token_entries) >= 20
+
+    for entry in single_token_entries[:20]:
+        expected = len(wordnet_synsets(entry.lemma, pos=entry.part_of_speech))
+        assert expected >= 1
+        assert entry.sense_count == expected
 
 
 def test_missing_wordnet_raises_domain_error(monkeypatch: pytest.MonkeyPatch) -> None:

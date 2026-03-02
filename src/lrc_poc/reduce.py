@@ -13,6 +13,7 @@ def reduce_cloud(
     scorer: SemanticScorer | None = None,
     top_k: int = 10,
     max_candidates: int = 300,
+    use_domain_heuristics: bool = False,
     mode_used: int = 0,
     fallback_reason: str = "",
     candidate_pool: tuple[LexiconEntry, ...] | list[LexiconEntry] | None = None,
@@ -25,7 +26,12 @@ def reduce_cloud(
     local_candidates = (
         tuple(candidate_pool)
         if candidate_pool is not None
-        else generate_candidates(cloud=cloud, lexicon=lexicon, max_candidates=max_candidates)
+        else generate_candidates(
+            cloud=cloud,
+            lexicon=lexicon,
+            max_candidates=max_candidates,
+            use_domain_heuristics=use_domain_heuristics,
+        )
     )
     if not local_candidates:
         raise ValueError("candidate generation returned no items")

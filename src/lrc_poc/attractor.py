@@ -13,7 +13,13 @@ from .recurse import run_pipeline_recursion, run_recursion, summarize_iterations
 from .score import SemanticScorer
 
 
-def _trajectory_rows(seed: str, iterations: tuple[IterationResult, ...]) -> list[dict[str, object]]:
+def _trajectory_rows(
+    seed: str,
+    iterations: tuple[IterationResult, ...],
+    *,
+    use_domain_heuristics: bool,
+    ambiguity_penalty_enabled: bool,
+) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for item in iterations:
         rows.append(
@@ -30,12 +36,20 @@ def _trajectory_rows(seed: str, iterations: tuple[IterationResult, ...]) -> list
                 "cycle_detected": item.cycle_detected,
                 "cycle_length": item.cycle_length,
                 "top_k_words": "|".join(item.top_k_words),
+                "use_domain_heuristics": use_domain_heuristics,
+                "ambiguity_penalty_enabled": ambiguity_penalty_enabled,
             }
         )
     return rows
 
 
-def _summary_row(seed: str, iterations: tuple[IterationResult, ...]) -> dict[str, object]:
+def _summary_row(
+    seed: str,
+    iterations: tuple[IterationResult, ...],
+    *,
+    use_domain_heuristics: bool,
+    ambiguity_penalty_enabled: bool,
+) -> dict[str, object]:
     last = iterations[-1]
     summary = summarize_iterations(iterations)
     return {
@@ -45,6 +59,8 @@ def _summary_row(seed: str, iterations: tuple[IterationResult, ...]) -> dict[str
         "cycles": int(summary["cycles"]),
         "average_drift": summary["average_drift"],
         "average_entropy": summary["average_entropy"],
+        "use_domain_heuristics": use_domain_heuristics,
+        "ambiguity_penalty_enabled": ambiguity_penalty_enabled,
     }
 
 
@@ -55,6 +71,7 @@ def map_attractors(
     iterations: int = 10,
     output_dir: str | Path = "artifacts",
     scorer: SemanticScorer | None = None,
+    use_domain_heuristics: bool = False,
     mode_used: int = 0,
     fallback_reason: str = "",
     pipeline=None,
@@ -71,6 +88,10 @@ def map_attractors(
     seed_terms = tuple(seeds) if seeds else sample_seed_words(max_seeds=seed_count)
     if not seed_terms:
         raise ValueError("no seeds available for attractor mapping")
+    heuristics_enabled = (
+        bool(getattr(pipeline, "use_domain_heuristics", False)) if pipeline is not None else use_domain_heuristics
+    )
+    ambiguity_penalty_enabled = any(entry.sense_count > 1 for entry in lexicon)
 
     trajectory_records: list[dict[str, object]] = []
     summary_records: list[dict[str, object]] = []
@@ -83,6 +104,7 @@ def map_attractors(
                 lexicon=lexicon,
                 iterations=iterations,
                 scorer=local_scorer,
+                use_domain_heuristics=use_domain_heuristics,
                 mode_used=mode_used,
                 fallback_reason=fallback_reason,
             )
@@ -93,8 +115,20 @@ def map_attractors(
                 iterations=iterations,
                 mode=mode_used,
             )
-        trajectory_records.extend(_trajectory_rows(seed, iterations_result))
-        row = _summary_row(seed, iterations_result)
+        trajectory_records.extend(
+            _trajectory_rows(
+                seed,
+                iterations_result,
+                use_domain_heuristics=heuristics_enabled,
+                ambiguity_penalty_enabled=ambiguity_penalty_enabled,
+            )
+        )
+        row = _summary_row(
+            seed,
+            iterations_result,
+            use_domain_heuristics=heuristics_enabled,
+            ambiguity_penalty_enabled=ambiguity_penalty_enabled,
+        )
         summary_records.append(row)
         basin_summary[row["final_word"]] = basin_summary.get(row["final_word"], 0) + 1
 

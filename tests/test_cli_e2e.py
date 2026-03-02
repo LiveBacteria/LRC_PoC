@@ -32,8 +32,25 @@ def test_cli_run_once() -> None:
         "200",
     )
     assert payload["result_type"] == "sentence_cycle"
+    assert payload["use_domain_heuristics"] is False
     assert payload["definition_cycle"]["expanded_sentence"]
     assert payload["definition_cycle"]["reduced_sentence"]
+
+
+def test_cli_run_once_supports_domain_heuristics_flag() -> None:
+    payload = _run_cli(
+        "run-once",
+        "--text",
+        "grief",
+        "--mode",
+        "0",
+        "--use-domain-heuristics",
+        "--max-entries",
+        "2000",
+        "--limit-per-pos",
+        "100",
+    )
+    assert payload["use_domain_heuristics"] is True
 
 
 def test_cli_recurse() -> None:
