@@ -1,0 +1,36 @@
+# Local secrets and runtime config
+config/models.yaml
+
+# Environment files
+.env
+.env.*
+*.env
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Conda artifacts
+conda-meta/
+
+# Python cache/build artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Local data/artifacts
+artifacts/
+outputs/
+
+# Local agent scratch/rules artifacts (keep docs/adr tracked)
+AGENTS/*.local.md
+AGENTS/*.rules.local
+AGENTS/*.tmp
+*.adr.local.md
