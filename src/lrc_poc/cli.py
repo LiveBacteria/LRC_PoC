@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 from .attractor import map_attractors
+from .investigation import build_reduction_incident_report
 from .lexicon import build_wordnet_lexicon
 from .pipeline import LRCPipeline
 from .recurse import lexical_entropy_profile, run_pipeline_recursion, summarize_iterations
@@ -19,7 +20,6 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     shared = argparse.ArgumentParser(add_help=False)
-    shared.add_argument("--mode", type=int, default=0, choices=[0, 1, 2, 3, 4])
     shared.add_argument("--top-k", type=int, default=10)
     shared.add_argument("--max-candidates", type=int, default=300)
     shared.add_argument("--max-entries", type=int, default=80000)
@@ -34,18 +34,18 @@ def _build_parser() -> argparse.ArgumentParser:
     run_once_parser.add_argument("--text", required=True)
     run_once_parser.add_argument(
         "--definition-style",
-        choices=["literal_first", "semantic_relational", "literal_raw"],
+        choices=["literal_first", "cloud_compact", "literal_raw"],
         default="literal_first",
-    )
-    run_once_parser.add_argument(
-        "--semantic-fallback-reduction",
-        action="store_true",
-        help="Allow semantic fallback when exact definition-to-term match is unavailable.",
     )
     run_once_parser.add_argument(
         "--include-global-compression",
         action="store_true",
         help="Also compute global lexical compression for sentence input.",
+    )
+    run_once_parser.add_argument(
+        "--emit-reduction-diagnostics",
+        action="store_true",
+        help="Include reducer diagnostics counters in the run-once payload.",
     )
 
     recurse_parser = subparsers.add_parser("recurse", parents=[shared])
@@ -57,6 +57,10 @@ def _build_parser() -> argparse.ArgumentParser:
     map_parser.add_argument("--seed-count", type=int, default=200)
     map_parser.add_argument("--iterations", type=int, default=10)
     map_parser.add_argument("--out", type=str, default="artifacts")
+
+    investigate_parser = subparsers.add_parser("investigate-reduction", parents=[shared])
+    investigate_parser.add_argument("--thread-json", type=str, required=True)
+    investigate_parser.add_argument("--max-cases", type=int, default=0)
 
     return parser
 
@@ -86,18 +90,16 @@ def _run_sentence_cycle_compat(
     text: str,
     lexicon,
     pipeline: LRCPipeline,
-    mode: int,
     definition_style: str,
-    semantic_fallback_reduction: bool,
 ) -> dict[str, object]:
     signature = inspect.signature(run_sentence_definition_cycle)
     kwargs = {
         "text": text,
         "lexicon": lexicon,
         "pipeline": pipeline,
-        "mode": mode,
+        "mode": 0,
         "definition_style": definition_style,
-        "use_semantic_fallback": semantic_fallback_reduction,
+        "use_semantic_fallback": False,
     }
     supported = {key: value for key, value in kwargs.items() if key in signature.parameters}
     return run_sentence_definition_cycle(**supported)
@@ -115,49 +117,50 @@ def main() -> None:
             text=args.text,
             lexicon=lexicon,
             pipeline=pipeline,
-            mode=args.mode,
             definition_style=args.definition_style,
-            semantic_fallback_reduction=args.semantic_fallback_reduction,
         )
         token_count = len([piece for piece in args.text.strip().split() if piece])
         sentence_input = token_count > 1
 
         if sentence_input and not args.include_global_compression:
+            payload = {
+                "result_type": "sentence_cycle",
+                "use_domain_heuristics": args.use_domain_heuristics,
+                "definition_cycle": sentence_cycle,
+            }
+            if args.emit_reduction_diagnostics:
+                payload["reduction_diagnostics"] = sentence_cycle.get("reduction_diagnostics", {})
+                payload["reducer_config"] = sentence_cycle.get("reducer_config", {})
             _print_payload(
-                {
-                    "mode": args.mode,
-                    "result_type": "sentence_cycle",
-                    "use_domain_heuristics": args.use_domain_heuristics,
-                    "definition_cycle": sentence_cycle,
-                }
+                payload
             )
             return
 
         result = pipeline.run_once(
             text=args.text,
-            mode=args.mode,
             top_k=args.top_k,
             max_candidates=args.max_candidates,
         )
-        _print_payload(
-            {
-                "mode": args.mode,
-                "result_type": "global_compression",
-                "use_domain_heuristics": args.use_domain_heuristics,
-                "winner": result.winner.word,
-                "confidence": result.confidence,
-                "fallback_reason": result.fallback_reason,
-                "definition_cycle": sentence_cycle,
-                "top_k": [
-                    {
-                        "word": item.word,
-                        "score": item.score_breakdown.total,
-                        "definition": item.definition,
-                    }
-                    for item in result.top_k
-                ],
-            }
-        )
+        payload = {
+            "result_type": "global_compression",
+            "use_domain_heuristics": args.use_domain_heuristics,
+            "winner": result.winner.word,
+            "confidence": result.confidence,
+            "fallback_reason": result.fallback_reason,
+            "definition_cycle": sentence_cycle,
+            "top_k": [
+                {
+                    "word": item.word,
+                    "score": item.score_breakdown.total,
+                    "definition": item.definition,
+                }
+                for item in result.top_k
+            ],
+        }
+        if args.emit_reduction_diagnostics:
+            payload["reduction_diagnostics"] = sentence_cycle.get("reduction_diagnostics", {})
+            payload["reducer_config"] = sentence_cycle.get("reducer_config", {})
+        _print_payload(payload)
         return
 
     if args.command == "recurse":
@@ -165,11 +168,10 @@ def main() -> None:
             source_text=args.text,
             pipeline=pipeline,
             iterations=args.iterations,
-            mode=args.mode,
+            mode=0,
         )
         _print_payload(
             {
-                "mode": args.mode,
                 "iterations": args.iterations,
                 "use_domain_heuristics": args.use_domain_heuristics,
                 "summary": summarize_iterations(iterations),
@@ -201,12 +203,11 @@ def main() -> None:
             seed_count=args.seed_count,
             iterations=args.iterations,
             output_dir=args.out,
-            mode_used=args.mode,
+            mode_used=0,
             pipeline=pipeline,
         )
         _print_payload(
             {
-                "mode": args.mode,
                 "use_domain_heuristics": args.use_domain_heuristics,
                 "seed_count": result.seed_count,
                 "iterations": result.iterations,
@@ -218,6 +219,16 @@ def main() -> None:
                 "output_files": list(result.output_files),
             }
         )
+        return
+
+    if args.command == "investigate-reduction":
+        report = build_reduction_incident_report(
+            thread_json_path=args.thread_json,
+            lexicon=lexicon,
+            pipeline=pipeline,
+            max_cases=args.max_cases,
+        )
+        _print_payload(report)
         return
 
     raise RuntimeError(f"Unsupported command: {args.command}")

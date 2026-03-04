@@ -40,7 +40,7 @@ See [docs/lrc_working_hypotheses.md](docs/lrc_working_hypotheses.md) for open qu
 ### Lexical Expansion (Semantic Unpacking)
 
 - **Process:** Expand a source word, phrase, or sentence into semantic components.
-- **Mechanism:** Use dictionary and optional LLM context to produce a structured cloud.
+- **Mechanism:** Use deterministic lexical resources (WordNet/dictionary information) to produce a structured cloud.
 - **Output:** Definitions, connotations, related concepts, constraints, and negative constraints.
 
 ### Lexical Convolution (Semantic Reduction)
@@ -67,15 +67,44 @@ Recursive expand -> reduce analysis tracks:
 - Lexical entropy trends.
 - Attractor basins across many seed terms.
 
-## Mode Matrix (0-4)
+## Deterministic Runtime
 
-- **Mode 0:** Deterministic baseline only.
-- **Mode 1:** LLM expansion + deterministic reduction.
-- **Mode 2:** Deterministic expansion + LLM candidate proposal + deterministic rerank.
-- **Mode 3:** Deterministic top-k + LLM reranking.
-- **Mode 4:** LLM expansion + LLM proposal + LLM rerank + deterministic fallback validation.
+- The active runtime is deterministic-only.
+- Expansion uses WordNet-backed lexical serialization.
+- Reduction uses deterministic scoring and lexical matching.
+- No LLM mode switching is used in milestone workflows.
 
-All non-zero modes fall back gracefully to deterministic behavior if provider config is missing or provider calls fail.
+## Expansion Policy
+
+- Expansion is deterministic by design in sentence workflows.
+- Expansion should be interpreted as replacing lexical tokens with dictionary/WordNet-grounded definition information.
+- LLM expansion was intentionally removed because it introduced unnecessary variance and latency, and it is not required for the core LRC expansion objective.
+
+## M1/M2 Unified Execution Model
+
+M1 and M2 now use the same primitives and only the same primitives:
+
+1. `expand`: token -> context-aware WordNet cloud/definition serialization.
+2. `reduce`: greedy left-to-right window reduction using cloud superposition and lexical candidate matching.
+3. `recursive_reduce`: repeated `reduce` passes until a pass makes zero replacements.
+
+Formal sketch:
+
+- Input units: `X = (u_1, ..., u_n)`.
+- Expansion cloud per unit: `C_i = E(u_i | context)`.
+- Expand-on-expand: `C_i^(t+1) = normalize(C_i^t (+) E(top_terms(C_i^t)))`.
+- Reduce span cloud: `S_(i:j) = (+)_{k=i..j} C_k`.
+- Candidate winner: `w* = argmax_w sim(S_(i:j), L_w)`.
+- Accept only if:
+  - `score >= tau_score`
+  - `margin >= tau_margin`
+  - winner is a single lexical word.
+- Replacement contract: only `span >= 2 -> 1`.
+
+Recursive stop rule:
+
+- `recursive_reduce` stops on the first pass with zero accepted replacements.
+- Because accepted replacements always reduce token count, termination is guaranteed.
 
 ## Architecture
 
@@ -160,40 +189,61 @@ Config loading behavior:
 Run once (sentence cycle primary output):
 
 ```powershell
-python -m lrc_poc.cli run-once --text "The cat jumped over the dog." --mode 4 --definition-style literal_first
+python -m lrc_poc.cli run-once --text "The cat jumped over the dog." --definition-style literal_first
+```
+
+Emit reducer diagnostics for one run:
+
+```powershell
+python -m lrc_poc.cli run-once --text "The cat jumped over the dog." --emit-reduction-diagnostics
 ```
 
 Run recursion (advanced lexical diagnostics):
 
 ```powershell
-python -m lrc_poc.cli recurse --text "a positive emotional state with pleasure and contentment" --iterations 10 --mode 0
+python -m lrc_poc.cli recurse --text "a positive emotional state with pleasure and contentment" --iterations 10
 ```
 
 Run attractor map (advanced research diagnostics):
 
 ```powershell
-python -m lrc_poc.cli map --seed-count 200 --iterations 10 --mode 0 --out artifacts
+python -m lrc_poc.cli map --seed-count 200 --iterations 10 --out artifacts
+```
+
+Replay a thread JSON and produce an incident report for stalled reductions:
+
+```powershell
+python -m lrc_poc.cli investigate-reduction --thread-json "C:/Users/LiveB/Downloads/thread-1 (2).json"
 ```
 
 Word and short-phrase inputs are also supported, but sentence inputs are first-class and covered by tests.
 
-## Dashboard Modes
+## Dashboard Milestones
 
-The Streamlit app is split into milestone tabs:
+The Streamlit app uses a chat-style workspace with sidebar milestone selection:
 
-- `Milestone 1 - Expand/Reduce`: core sentence operator (definition expansion + section-wise reduction).
-- `Milestone 2 - Sentence Cycles`: repeated sentence-level expansion/reduction.
-- `Milestone 3 - Attractor Analysis`: advanced lexical attractor research diagnostics.
+- `Milestone 1 - Expand/Reduce`: one sentence cycle with token and segment details.
+- `Milestone 2 - Sequence Cycles`: repeated sentence-level operation sequences with declarable order (`expand` / `reduce` / `recursive_reduce`).
+- `Milestone 3 - Attractor Analysis`: advanced lexical attractor research diagnostics over seed sets.
+- All milestones execute on the same deterministic runtime path.
 
 ## Control Meanings
 
 - `Definition Style`:
   - `literal_first`: first concise literal definition clause.
-  - `semantic_relational`: relation-focused meaning phrase (LLM-assisted when available).
+  - `cloud_compact`: compact cloud serialization (definition + lexical relations).
   - `literal_raw`: full raw WordNet definition text.
-- `Semantic fallback reduction`:
-  - `off`: strict token-preserving reduction when exact definition match is not found.
-  - `on`: allow semantic replacement for unmatched definition slices.
+- `Sequence` (M2):
+  - Predefined or custom operation order for each cycle.
+  - Supports `expand`, `reduce`, and `recursive_reduce` operators.
+  - Custom text accepts comma/space/`->` separators.
+  - Built-ins include: `expand -> reduce`, `expand -> expand -> reduce`, `expand -> reduce -> reduce`, `expand -> expand -> reduce -> reduce`, and `expand -> recursive_reduce`.
+  - `reduce` scans windows left-to-right, tries longest spans first, superposes span clouds, and replaces accepted spans with the top lexical match.
+  - `recursive_reduce` is an explicit LRC function that repeatedly applies reduction until a pass yields zero accepted replacements.
+  - Examples:
+    - `expand -> recursive_reduce`
+    - `recursive_reduce`
+    - `expand -> reduce -> reduce` (manual recursive reduction)
 - `Lexicon Max Entries` (M3 advanced): upper bound on candidate lexicon size for runtime control.
 - `Limit Per POS` (M3 advanced): caps entries per part-of-speech class.
 - `Seed Count` and `Iterations` (M3 advanced): size and depth of attractor mapping experiments.
@@ -207,12 +257,17 @@ streamlit run src/lrc_poc/dashboard/app.py
 
 The dashboard provides:
 
-- Sentence definition expansion/reduction cycle as primary output.
-- Definition style controls: `literal_first`, `semantic_relational`, `literal_raw`.
-- Optional semantic fallback reduction toggle.
-- Optional global compression debug view (disabled by default for sentence inputs).
-- Milestone 2 recursive sentence-cycle trace.
-- Milestone 3 attractor basin mapping with artifact downloads.
+- Chat transcript output with card/expander rendering instead of dataframe tables.
+- Multi-thread chat history: create, rename, delete, export, and swap between investigation threads.
+- Sidebar controls for definition style and M2 sequence selection.
+- Milestone 2 cycle-by-cycle and step-by-step operation trace for user-defined sequences.
+- Milestone 3 attractor mapping summaries and artifact downloads.
+
+## Investigation Note: Expansion Tail Bug
+
+- Symptom: after `expand -> reduce`, reduced output could include trailing definition fragments.
+- Root cause: reduction reconstruction was using expanded text as the reconstruction source while mappings were indexed to the pre-expansion sentence.
+- Resolution: reconstruction now uses the source sentence tied to the mapping set, eliminating post-reduction definition tails.
 
 ## Testing
 
@@ -227,7 +282,6 @@ Coverage includes:
 - Deterministic logic/unit tests.
 - Gold-case semantic accuracy regression tests.
 - Recursion/cycle/fixed-point validation tests.
-- Mode 1-4 fallback and schema parity tests.
 - CLI end-to-end tests.
 - Dashboard smoke tests.
 

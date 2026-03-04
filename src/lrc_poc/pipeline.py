@@ -1,4 +1,4 @@
-"""Mode-selectable LRC pipeline orchestration."""
+"""Deterministic LRC pipeline orchestration."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import Iterable
 from .candidates import generate_candidates
 from .config import ApiKeys, AppConfig, ConfigError, ModelDefaults, load_config
 from .expand import safe_expand_text
-from .llm import AnthropicProvider, BaseLLMProvider, GoogleProvider, LLMProviderError, OpenAIProvider
+from .llm import BaseLLMProvider, LLMProviderError
 from .models import CandidateResult, LexiconEntry, ReductionResult, SemanticCloud
 from .reduce import reduce_cloud
 from .score import SemanticScorer
@@ -21,29 +21,6 @@ def _empty_config() -> AppConfig:
         api_keys=ApiKeys(),
         source_path=Path(),
     )
-
-
-def _choose_provider(config: AppConfig, preferred_provider: str | None = None) -> BaseLLMProvider | None:
-    model_name = config.defaults.model_name
-    providers: list[BaseLLMProvider] = [
-        GoogleProvider(api_key=config.api_keys.google_api_key, model_name=model_name or ""),
-        OpenAIProvider(api_key=config.api_keys.openai_api_key, model_name=model_name or "gpt-4o-mini"),
-        AnthropicProvider(
-            api_key=config.api_keys.anthropic_api_key,
-            model_name=model_name or "claude-3-5-haiku-latest",
-        ),
-    ]
-
-    if preferred_provider:
-        for provider in providers:
-            if provider.name == preferred_provider and provider.is_configured():
-                return provider
-        return None
-
-    for provider in providers:
-        if provider.is_configured():
-            return provider
-    return None
 
 
 def _merge_cloud(base: SemanticCloud, payload: dict[str, list[str] | str]) -> SemanticCloud:
@@ -108,7 +85,7 @@ def _dedupe_entries(entries: Iterable[LexiconEntry], max_items: int) -> tuple[Le
 
 
 class LRCPipeline:
-    """Mode-selectable pipeline with graceful deterministic fallback."""
+    """Deterministic pipeline (mode 0 only)."""
 
     def __init__(
         self,
@@ -132,15 +109,17 @@ class LRCPipeline:
                 config = _empty_config()
         self.config = config
 
-        self.provider = provider or _choose_provider(config, preferred_provider=preferred_provider)
+        # Deterministic runtime: providers are intentionally disabled.
+        del provider, preferred_provider
+        self.provider = None
         self.lexicon_by_word: dict[str, list[LexiconEntry]] = {}
         for entry in self.lexicon:
             self.lexicon_by_word.setdefault(entry.word.lower(), []).append(entry)
 
     @staticmethod
     def _validate_mode(mode: int) -> None:
-        if mode not in {0, 1, 2, 3, 4}:
-            raise ValueError("mode must be one of 0, 1, 2, 3, 4")
+        if mode != 0:
+            raise ValueError("Only deterministic mode 0 is supported")
 
     def _provider_or_reason(self, fallback_reasons: list[str]) -> BaseLLMProvider | None:
         if self.provider and self.provider.is_configured():
@@ -254,30 +233,9 @@ class LRCPipeline:
         top_k: int = 10,
         max_candidates: int = 300,
     ) -> ReductionResult:
-        """Run one pass of expansion and reduction under selected mode."""
+        """Run one deterministic pass of expansion and reduction."""
         self._validate_mode(mode)
-        fallback_reasons: list[str] = []
-
         cloud = safe_expand_text(text)
-
-        provider: BaseLLMProvider | None = None
-        if mode in {1, 2, 3, 4}:
-            provider = self._provider_or_reason(fallback_reasons)
-
-        if mode in {1, 4} and provider:
-            try:
-                cloud = _merge_cloud(cloud, provider.expand_cloud(text))
-            except LLMProviderError as error:
-                fallback_reasons.append(f"LLM expansion failed: {error}")
-
-        candidate_pool = None
-        if mode in {2, 4} and provider:
-            candidate_pool = self._candidate_pool_from_llm(
-                cloud=cloud,
-                max_candidates=max_candidates,
-                provider=provider,
-                fallback_reasons=fallback_reasons,
-            )
 
         reduction = reduce_cloud(
             cloud=cloud,
@@ -286,20 +244,12 @@ class LRCPipeline:
             top_k=top_k,
             max_candidates=max_candidates,
             use_domain_heuristics=self.use_domain_heuristics,
-            mode_used=mode,
-            fallback_reason="; ".join(fallback_reasons),
-            candidate_pool=candidate_pool,
+            mode_used=0,
+            fallback_reason="",
+            candidate_pool=None,
         )
-
-        if mode in {3, 4} and provider:
-            reduction = self._apply_llm_rerank(
-                cloud=cloud,
-                reduction=reduction,
-                provider=provider,
-                fallback_reasons=fallback_reasons,
-            )
-
-        fallback_reason = "; ".join(reason for reason in fallback_reasons if reason)
-        if reduction.fallback_reason != fallback_reason:
-            reduction = replace(reduction, fallback_reason=fallback_reason)
+        if reduction.mode_used != 0:
+            reduction = replace(reduction, mode_used=0)
+        if reduction.fallback_reason:
+            reduction = replace(reduction, fallback_reason="")
         return reduction
